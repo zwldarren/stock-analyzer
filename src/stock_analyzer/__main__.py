@@ -1,0 +1,385 @@
+"""
+===================================
+A股自选股智能分析系统 - 主调度程序 (Simplified)
+===================================
+
+使用方式：
+    python -m stock_analyzer              # 正常运行
+    python -m stock_analyzer --debug      # 调试模式
+    python -m stock_analyzer --dry-run    # 仅获取数据不分析
+"""
+
+import asyncio
+import os
+import sys
+from datetime import datetime
+
+import click
+from loguru import logger
+
+from stock_analyzer.config import Config, check_config_valid, get_config, get_config_safe
+from stock_analyzer.core import batch_analyze, get_data_service, get_notification_service
+from stock_analyzer.domain.constants import get_action_emoji
+from stock_analyzer.setup_wizard import init_command
+from stock_analyzer.utils.logging_config import setup_logging
+
+
+@click.group(invoke_without_command=True)
+@click.option("--debug", is_flag=True, help="启用调试模式，输出详细日志")
+@click.option("--dry-run", is_flag=True, help="仅获取数据，不进行 AI 分析")
+@click.option("--stocks", type=str, help="指定要分析的股票代码，逗号分隔（覆盖配置文件）")
+@click.option("--no-notify", is_flag=True, help="不发送推送通知")
+@click.option(
+    "--single-notify",
+    is_flag=True,
+    help="启用单股推送模式：每分析完一只股票立即推送，而不是汇总推送",
+)
+@click.option("--workers", type=int, default=None, help="并发线程数（默认使用配置值）")
+@click.option("--schedule", is_flag=True, help="启用定时任务模式，每日定时执行")
+@click.option("--no-context-snapshot", is_flag=True, help="不保存分析上下文快照")
+@click.option("--skip-config-check", is_flag=True, help="跳过配置检查（高级用户）")
+@click.pass_context
+def cli(
+    ctx: click.Context,
+    debug: bool,
+    dry_run: bool,
+    stocks: str | None,
+    no_notify: bool,
+    single_notify: bool,
+    workers: int | None,
+    schedule: bool,
+    no_context_snapshot: bool,
+    skip_config_check: bool,
+) -> int:
+    """A股自选股智能分析系统
+
+    Examples:
+
+        \b
+        stock-analyzer                    # 正常运行
+        stock-analyzer --debug            # 调试模式
+        stock-analyzer --dry-run          # 仅获取数据，不进行 AI 分析
+        stock-analyzer --stocks 600519,000001  # 指定分析特定股票
+        stock-analyzer --no-notify        # 不发送推送通知
+        stock-analyzer --single-notify    # 启用单股推送模式
+        stock-analyzer --schedule         # 启用定时任务模式
+        stock-analyzer --market-review    # 仅运行大盘复盘
+        stock-analyzer init               # 运行配置初始化向导
+    """
+    # 如果没有子命令，运行主程序
+    if ctx.invoked_subcommand is None:
+        return run_main(
+            debug,
+            dry_run,
+            stocks,
+            no_notify,
+            single_notify,
+            workers,
+            schedule,
+            no_context_snapshot,
+            skip_config_check,
+        )
+    return 0
+
+
+def run_main(
+    debug: bool,
+    dry_run: bool,
+    stocks: str | None,
+    no_notify: bool,
+    single_notify: bool,
+    workers: int | None,
+    schedule: bool,
+    no_context_snapshot: bool,
+    skip_config_check: bool,
+) -> int:
+    """运行主程序逻辑"""
+    # 检查配置（除非跳过）
+    if not skip_config_check:
+        config, errors = get_config_safe()
+        is_valid, missing = check_config_valid(config)
+
+        if not is_valid:
+            from rich.console import Console
+
+            console = Console()
+            console.print("\n[bold yellow]⚠️ 未检测到有效配置[/bold yellow]")
+            console.print("\n[dim]缺少以下必需配置:[/dim]")
+            for item in missing:
+                console.print(f"  - {item}")
+            console.print("\n[dim]请运行以下命令完成初始化:[/dim]")
+            console.print("  [bold cyan]stock-analyzer init[/bold cyan]")
+            return 1
+
+    # 加载配置（在设置日志前加载，以获取日志目录）
+    config = get_config()
+
+    # 应用系统配置：代理设置
+    # GitHub Actions 环境自动跳过代理配置
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        if config.system.http_proxy:
+            os.environ["http_proxy"] = config.system.http_proxy
+            logger.debug(f"已设置 http_proxy: {config.system.http_proxy}")
+        if config.system.https_proxy:
+            os.environ["https_proxy"] = config.system.https_proxy
+            logger.debug(f"已设置 https_proxy: {config.system.https_proxy}")
+
+    # 配置日志（输出到控制台和文件）
+    # 命令行 --debug 参数优先，其次使用配置文件中的 debug 设置
+    effective_debug = debug or config.system.debug
+    setup_logging(debug=effective_debug, log_dir=config.logging.log_dir)
+
+    logger.info("=" * 60)
+    logger.info("A股自选股智能分析系统 启动")
+    logger.info(f"运行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info("=" * 60)
+
+    # 验证配置
+    warnings = config.validate_config()
+    for warning in warnings:
+        logger.warning(warning)
+
+    # 解析股票列表
+    stock_codes = None
+    if stocks:
+        stock_codes = [code.strip() for code in stocks.split(",") if code.strip()]
+        logger.info(f"使用命令行指定的股票列表: {stock_codes}")
+
+    try:
+        # 模式1: 定时任务模式
+        if schedule or config.schedule.schedule_enabled:
+            logger.info("模式: 定时任务")
+            logger.info(f"每日执行时间: {config.schedule.schedule_time}")
+
+            from stock_analyzer.core.scheduler import run_with_schedule
+
+            def scheduled_task():
+                run_full_analysis(
+                    config,
+                    stock_codes,
+                    dry_run,
+                    no_notify,
+                    single_notify,
+                    workers,
+                    no_context_snapshot,
+                    debug,
+                )
+
+            run_with_schedule(
+                task=scheduled_task,
+                schedule_time=config.schedule.schedule_time,
+                run_immediately=True,
+            )
+            return 0
+
+        # 模式2: 正常单次运行
+        run_full_analysis(
+            config,
+            stock_codes,
+            dry_run,
+            no_notify,
+            single_notify,
+            workers,
+            no_context_snapshot,
+            debug,
+        )
+
+        logger.info("\n程序执行完成")
+
+        # 关闭所有未关闭的事件循环，避免 ResourceWarning
+        try:
+            loop = asyncio.get_event_loop()
+            if not loop.is_closed() and not loop.is_running():
+                loop.close()
+        except Exception:
+            pass
+
+        return 0
+
+    except KeyboardInterrupt:
+        logger.info("\n用户中断，程序退出")
+        return 130
+
+    except Exception as e:
+        logger.exception(f"程序执行失败: {e}")
+        return 1
+
+
+def run_full_analysis(
+    config: Config,
+    stock_codes: list[str] | None,
+    dry_run: bool,
+    no_notify: bool,
+    single_notify: bool,
+    workers: int | None,
+    no_context_snapshot: bool = False,
+    debug: bool = False,
+):
+    """
+    执行完整的分析流程 (Simplified version)
+
+    这是定时任务调用的主函数
+    """
+    try:
+        # 命令行参数 --single-notify 覆盖配置（#55）
+        if single_notify:
+            config.notification_message.single_stock_notify = True
+
+        # 确定是否保存上下文快照：命令行参数优先，否则使用配置
+        save_context_snapshot = not no_context_snapshot and config.database.save_context_snapshot
+
+        # 获取股票列表
+        if stock_codes is None:
+            config.refresh_stock_list()
+            stock_codes = config.stock_list
+
+        if not stock_codes:
+            logger.error("未配置自选股列表，请在 .env 文件中设置 STOCK_LIST")
+            return []
+
+        max_workers = workers or config.system.max_workers
+        logger.info(f"===== 开始分析 {len(stock_codes)} 只股票 =====")
+        logger.info(f"股票列表: {', '.join(stock_codes)}")
+        logger.info(f"并发数: {max_workers}, 模式: {'仅获取数据' if dry_run else '完整分析'}")
+
+        # 批量预取实时行情
+        _prefetch_realtime_quotes(stock_codes)
+
+        results = []
+
+        if dry_run:
+            # dry_run模式：仅获取数据
+            results = _run_dry_mode(stock_codes, max_workers)
+        else:
+            # 正常分析模式
+            results = _run_analysis_mode(
+                stock_codes,
+                config,
+                max_workers,
+                save_context_snapshot,
+                no_notify,
+            )
+
+        # 输出摘要
+        if results:
+            logger.info("\n===== 分析结果摘要 =====")
+            for r in sorted(results, key=lambda x: x.sentiment_score, reverse=True):
+                action = r.final_action or "HOLD"
+                emoji = get_action_emoji(action)
+                logger.info(f"{emoji} {r.name}({r.code}): {action} | 评分 {r.sentiment_score} | {r.trend_prediction}")
+
+        logger.info("\n任务执行完成")
+
+        return results
+
+    except Exception as e:
+        logger.exception(f"分析流程执行失败: {e}")
+        return []
+
+
+def _prefetch_realtime_quotes(stock_codes: list[str]) -> None:
+    """批量预取实时行情数据以优化性能"""
+    try:
+        data_service = get_data_service()
+        if hasattr(data_service, "_fetcher_manager") and data_service._fetcher_manager is not None:
+            prefetch_count = data_service._fetcher_manager.prefetch_realtime_quotes(stock_codes)
+            if prefetch_count > 0:
+                logger.info(f"已启用批量预取架构：一次拉取全市场数据，{len(stock_codes)} 只股票共享缓存")
+    except Exception as e:
+        logger.debug(f"批量预取实时行情失败: {e}")
+
+
+def _run_dry_mode(stock_codes: list[str], max_workers: int) -> list:
+    """dry_run模式：仅获取数据，不进行分析"""
+    logger.info("Dry-run模式：仅获取数据")
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    data_service = get_data_service()
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_code = {executor.submit(data_service.get_daily_data, code, 30): code for code in stock_codes}
+
+        for future in as_completed(future_to_code):
+            code = future_to_code[future]
+            try:
+                daily_data, source = future.result()
+                if daily_data is not None and not daily_data.empty:
+                    logger.info(f"[{code}] 数据获取成功: {len(daily_data)} 条")
+                else:
+                    logger.warning(f"[{code}] 数据获取失败")
+            except Exception as e:
+                logger.error(f"[{code}] 任务执行失败: {e}")
+
+    # dry_run模式下返回空列表（没有分析结果）
+    return []
+
+
+def _run_analysis_mode(
+    stock_codes: list[str],
+    config: Config,
+    max_workers: int,
+    save_context_snapshot: bool,
+    no_notify: bool,
+) -> list:
+    """正常分析模式"""
+    # 批量分析
+    results = batch_analyze(
+        stock_codes=stock_codes,
+        max_workers=max_workers,
+        save_context_snapshot=save_context_snapshot,
+    )
+
+    # 发送通知
+    if results and not no_notify:
+        _send_notifications(results, config)
+
+    return results
+
+
+def _send_notifications(results: list, config: Config) -> None:
+    """发送分析结果通知"""
+    try:
+        notifier = get_notification_service()
+
+        logger.info("生成决策仪表盘日报...")
+        report = notifier.generate_dashboard_report(results)
+        filepath = notifier.save_report_to_file(report)
+        logger.info(f"决策仪表盘日报已保存: {filepath}")
+
+        if not notifier.is_available():
+            logger.info("通知渠道未配置，跳过推送")
+            return
+
+        # 发送到各个渠道
+        _send_to_channels(notifier, report, results)
+
+    except Exception as e:
+        logger.error(f"发送通知失败: {e}")
+
+
+def _send_to_channels(notifier, report: str, results: list) -> None:
+    """发送报告到各个通知渠道"""
+    context_success = notifier.send_to_context(report)
+
+    # 发送完整报告
+    success = notifier.send(report) or context_success
+
+    if success:
+        logger.info("决策仪表盘推送成功")
+    else:
+        logger.warning("决策仪表盘推送失败")
+
+
+# 添加 init 子命令
+cli.add_command(init_command)
+
+
+# 主入口点
+def main() -> int:
+    """程序主入口"""
+    return cli()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
