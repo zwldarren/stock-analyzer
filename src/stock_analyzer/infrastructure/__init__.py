@@ -10,16 +10,12 @@ This module contains:
 - Cache (cache)
 """
 
-from stock_analyzer.infrastructure.config import (
-    ConfigStorageImpl,
-    save_config_to_db_only,
-)
+from stock_analyzer.infrastructure.config import save_config_to_db_only
 from stock_analyzer.infrastructure.notification import NotificationService
 from stock_analyzer.infrastructure.persistence.database import DatabaseManager
 from stock_analyzer.infrastructure.search import SearchService
 
 __all__ = [
-    "ConfigStorageImpl",
     "NotificationService",
     "SearchService",
     "DatabaseManager",

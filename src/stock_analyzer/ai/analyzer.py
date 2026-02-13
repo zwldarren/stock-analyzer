@@ -14,7 +14,6 @@ Responsibilities:
 import logging
 from typing import Any
 
-from stock_analyzer.config import get_config
 from stock_analyzer.domain import get_stock_name_from_context
 from stock_analyzer.domain.exceptions import AnalysisError
 from stock_analyzer.domain.models import AnalysisResult
@@ -506,39 +505,6 @@ class AIAnalyzer(IAIAnalyzer):
             results.append(result)
 
         return results
-
-    def generate_market_review(self, prompt: str, generation_config: dict[str, Any]) -> str | None:
-        """
-        生成市场复盘报告
-
-        Args:
-            prompt: 提示词
-            generation_config: 生成配置
-
-        Returns:
-            生成的复盘报告文本，失败返回 None
-        """
-        # For multi-agent mode, we need to use LLM for market review
-        # This functionality requires LLM client
-        config = get_config()
-
-        try:
-            from stock_analyzer.ai.clients import LiteLLMClient
-
-            client = LiteLLMClient(
-                model=config.ai.llm_model,
-                api_key=config.ai.llm_api_key,
-                base_url=config.ai.llm_base_url,
-            )
-
-            if not client.is_available():
-                logger.warning("LLM 客户端不可用，无法生成市场复盘")
-                return None
-
-            return client.generate(prompt, generation_config)
-        except Exception as e:
-            logger.error(f"生成市场复盘报告失败: {e}")
-            return None
 
 
 # 便捷函数

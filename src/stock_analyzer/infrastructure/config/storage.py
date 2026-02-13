@@ -8,7 +8,6 @@ from sqlalchemy import Column, DateTime, String, Text, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 from stock_analyzer.config.config import Config, get_project_root
-from stock_analyzer.config.storage import ConfigConverter
 from stock_analyzer.domain.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -25,6 +24,156 @@ class AppConfigModel(Base):
     value = Column(Text)
     description = Column(String(255))
     updated_at = Column(DateTime)
+
+
+class ConfigConverter:
+    """Configuration converter utility.
+
+    Converts Config objects to dictionaries suitable for environment variables.
+    """
+
+    def to_dict(self, config: Config) -> dict[str, Any]:
+        """Convert Config object to environment variable dictionary.
+
+        Args:
+            config: Configuration object to convert.
+
+        Returns:
+            Dictionary with environment variable names as keys.
+        """
+        result: dict[str, Any] = {}
+
+        if config.stock_list:
+            result["STOCK_LIST"] = ",".join(config.stock_list)
+
+        ai = config.ai
+        if ai.llm_model:
+            result["LLM_MODEL"] = ai.llm_model
+        if ai.llm_api_key:
+            result["LLM_API_KEY"] = ai.llm_api_key
+        if ai.llm_base_url:
+            result["LLM_BASE_URL"] = ai.llm_base_url
+        if ai.llm_fallback_model:
+            result["LLM_FALLBACK_MODEL"] = ai.llm_fallback_model
+        if ai.llm_fallback_api_key:
+            result["LLM_FALLBACK_API_KEY"] = ai.llm_fallback_api_key
+        if ai.llm_fallback_base_url:
+            result["LLM_FALLBACK_BASE_URL"] = ai.llm_fallback_base_url
+        result["LLM_TEMPERATURE"] = ai.llm_temperature
+        result["LLM_MAX_TOKENS"] = ai.llm_max_tokens
+        result["LLM_REQUEST_DELAY"] = ai.llm_request_delay
+        result["LLM_MAX_RETRIES"] = ai.llm_max_retries
+        result["LLM_RETRY_DELAY"] = ai.llm_retry_delay
+
+        search = config.search
+        if search.bocha_api_keys_str:
+            result["BOCHA_API_KEYS"] = search.bocha_api_keys_str
+        if search.tavily_api_keys_str:
+            result["TAVILY_API_KEYS"] = search.tavily_api_keys_str
+        if search.brave_api_keys_str:
+            result["BRAVE_API_KEYS"] = search.brave_api_keys_str
+        if search.serpapi_keys_str:
+            result["SERPAPI_API_KEYS"] = search.serpapi_keys_str
+        if search.searxng_base_url:
+            result["SEARXNG_BASE_URL"] = search.searxng_base_url
+
+        notify = config.notification_channel
+        if notify.telegram_bot_token:
+            result["TELEGRAM_BOT_TOKEN"] = notify.telegram_bot_token
+        if notify.telegram_chat_id:
+            result["TELEGRAM_CHAT_ID"] = notify.telegram_chat_id
+        if notify.email_sender:
+            result["EMAIL_SENDER"] = notify.email_sender
+        if notify.email_password:
+            result["EMAIL_PASSWORD"] = notify.email_password
+        if notify.email_receivers_str:
+            result["EMAIL_RECEIVERS"] = notify.email_receivers_str
+        if notify.discord_webhook_url:
+            result["DISCORD_WEBHOOK_URL"] = notify.discord_webhook_url
+        if notify.custom_webhook_urls_str:
+            result["CUSTOM_WEBHOOK_URLS"] = notify.custom_webhook_urls_str
+        if notify.custom_webhook_bearer_token:
+            result["CUSTOM_WEBHOOK_BEARER_TOKEN"] = notify.custom_webhook_bearer_token
+
+        db = config.database
+        result["DATABASE_PATH"] = db.database_path
+        result["SAVE_CONTEXT_SNAPSHOT"] = db.save_context_snapshot
+
+        log = config.logging
+        result["LOG_DIR"] = log.log_dir
+        result["LOG_LEVEL"] = log.log_level
+
+        sys_cfg = config.system
+        result["MAX_WORKERS"] = sys_cfg.max_workers
+        result["DEBUG"] = sys_cfg.debug
+        if sys_cfg.http_proxy:
+            result["HTTP_PROXY"] = sys_cfg.http_proxy
+        if sys_cfg.https_proxy:
+            result["HTTPS_PROXY"] = sys_cfg.https_proxy
+
+        return result
+
+
+class ConfigStorage:
+    """Configuration storage manager for .env files."""
+
+    def __init__(self) -> None:
+        self.project_root = get_project_root()
+        self.env_file = self.project_root / ".env"
+        self.converter = ConfigConverter()
+
+    def save_to_env(self, config_dict: dict[str, Any]) -> None:
+        """Save configuration dictionary to .env file.
+
+        Args:
+            config_dict: Configuration dictionary with env var names as keys.
+        """
+        self.env_file.parent.mkdir(parents=True, exist_ok=True)
+
+        existing_lines: list[str] = []
+        if self.env_file.exists():
+            with open(self.env_file, encoding="utf-8") as f:
+                existing_lines = f.readlines()
+
+        new_config_lines: list[str] = []
+        existing_keys: set[str] = set()
+
+        for key, value in config_dict.items():
+            if value is not None:
+                if isinstance(value, list):
+                    value = ",".join(str(v) for v in value)
+                elif isinstance(value, bool):
+                    value = "true" if value else "false"
+                else:
+                    value = str(value)
+
+                if " " in value or "#" in value:
+                    value = f'"{value}"'
+
+                new_config_lines.append(f"{key}={value}\n")
+                existing_keys.add(key)
+
+        for line in existing_lines:
+            line = line.rstrip("\n")
+            if line.startswith("#") or not line.strip():
+                new_config_lines.append(line + "\n")
+            else:
+                if "=" in line:
+                    key = line.split("=", 1)[0].strip()
+                    if key not in existing_keys:
+                        new_config_lines.append(line + "\n")
+
+        with open(self.env_file, "w", encoding="utf-8") as f:
+            f.writelines(new_config_lines)
+
+    def save_config_to_env(self, config: Config) -> None:
+        """Save complete Config object to .env file.
+
+        Args:
+            config: Configuration object to save.
+        """
+        config_dict = self.converter.to_dict(config)
+        self.save_to_env(config_dict)
 
 
 class ConfigStorageImpl:
@@ -46,15 +195,14 @@ class ConfigStorageImpl:
         self.project_root = get_project_root()
         self.env_file = self.project_root / ".env"
         self.converter = ConfigConverter()
+        self._file_storage = ConfigStorage()
 
-        # Initialize database connection
         self.db_session = None
         self._engine = None
 
         if db_url:
             self._init_db(db_url)
         else:
-            # Use default database path
             db_path = self.project_root / "data" / "stock_analysis.db"
             db_path.parent.mkdir(parents=True, exist_ok=True)
             self._init_db(f"sqlite:///{db_path}")
@@ -76,11 +224,7 @@ class ConfigStorageImpl:
         Args:
             config_dict: Configuration dictionary with env var names as keys.
         """
-        # Delegate to file-based storage logic
-        from stock_analyzer.config.storage import ConfigStorage
-
-        file_storage = ConfigStorage()
-        file_storage.save_to_env(config_dict)
+        self._file_storage.save_to_env(config_dict)
 
     def save_to_db(self, config_dict: dict[str, Any]) -> None:
         """Save configuration to database.
@@ -96,16 +240,13 @@ class ConfigStorageImpl:
 
         for key, value in config_dict.items():
             if value is not None:
-                # Handle list type
                 if isinstance(value, list):
                     value = ",".join(str(v) for v in value)
-                # Handle boolean
                 elif isinstance(value, bool):
                     value = "true" if value else "false"
                 else:
                     value = str(value)
 
-                # Query or create config item
                 config_item = self.db_session.query(AppConfigModel).filter_by(key=key).first()
                 if config_item:
                     config_item.value = value

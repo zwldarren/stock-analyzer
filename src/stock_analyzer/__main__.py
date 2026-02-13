@@ -63,7 +63,6 @@ def cli(
         stock-analyzer --no-notify        # 不发送推送通知
         stock-analyzer --single-notify    # 启用单股推送模式
         stock-analyzer --schedule         # 启用定时任务模式
-        stock-analyzer --market-review    # 仅运行大盘复盘
         stock-analyzer init               # 运行配置初始化向导
     """
     # 如果没有子命令，运行主程序

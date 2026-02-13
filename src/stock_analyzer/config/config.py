@@ -221,7 +221,6 @@ class ScheduleConfig(BaseSettings):
 
     schedule_enabled: EnvBool = Field(default=False, validation_alias="SCHEDULE_ENABLED")
     schedule_time: str = Field(default="18:00", validation_alias="SCHEDULE_TIME")
-    analysis_delay: int = Field(default=0, validation_alias="ANALYSIS_DELAY")
 
 
 class RealtimeQuoteConfig(BaseSettings):
@@ -236,23 +235,6 @@ class RealtimeQuoteConfig(BaseSettings):
         validation_alias="REALTIME_SOURCE_PRIORITY",
     )
     realtime_cache_ttl: int = Field(default=600, validation_alias="REALTIME_CACHE_TTL")
-
-
-class BotConfig(BaseSettings):
-    """Bot configuration."""
-
-    model_config = _COMMON_CONFIG
-
-    bot_enabled: EnvBool = Field(default=True, validation_alias="BOT_ENABLED")
-    bot_command_prefix: str = Field(default="/", validation_alias="BOT_COMMAND_PREFIX")
-    bot_rate_limit_requests: int = Field(default=10, validation_alias="BOT_RATE_LIMIT_REQUESTS")
-    bot_rate_limit_window: int = Field(default=60, validation_alias="BOT_RATE_LIMIT_WINDOW")
-    bot_admin_users_str: str = Field(default="", validation_alias="BOT_ADMIN_USERS")
-
-    @computed_field
-    @property
-    def bot_admin_users(self) -> list[str]:
-        return _parse_comma_list(self.bot_admin_users_str)
 
 
 class DataSourceConfig(BaseSettings):
@@ -336,7 +318,6 @@ class Config(BaseSettings):
     system: SystemConfig = Field(default_factory=SystemConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
     realtime_quote: RealtimeQuoteConfig = Field(default_factory=RealtimeQuoteConfig)
-    bot: BotConfig = Field(default_factory=BotConfig)
     datasource: DataSourceConfig = Field(default_factory=DataSourceConfig)
     agent: AgentSystemConfig = Field(default_factory=AgentSystemConfig)
 

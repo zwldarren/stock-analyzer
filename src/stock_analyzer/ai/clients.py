@@ -2,7 +2,7 @@
 AI客户端模块 - 基于 litellm 的统一实现
 
 使用 litellm 支持 100+ LLM providers，统一接口格式
-用于市场复盘等需要LLM生成的场景
+用于股票分析等需要LLM生成的场景
 """
 
 import logging
@@ -24,7 +24,7 @@ os.environ.setdefault("LITELLM_LOG", "WARNING")  # 环境变量方式
 litellm.set_verbose = False  # 禁用 verbose 输出
 litellm.drop_params = True  # 静默丢弃不支持的参数
 
-# Default system prompt for market review and other LLM tasks
+# Default system prompt for stock analysis
 DEFAULT_SYSTEM_PROMPT = """你是一位专业的A股投资分析师，擅长市场分析和投资研究。
 请基于提供的数据生成专业、客观的分析报告。
 注意：

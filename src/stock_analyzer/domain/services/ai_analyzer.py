@@ -51,16 +51,3 @@ class IAIAnalyzer(ABC):
         Returns:
             list[AnalysisResult]: 分析结果列表
         """
-
-    @abstractmethod
-    def generate_market_review(self, prompt: str, generation_config: dict[str, Any]) -> str | None:
-        """
-        生成市场复盘报告
-
-        Args:
-            prompt: 提示词
-            generation_config: 生成配置
-
-        Returns:
-            生成的复盘报告文本，失败返回 None
-        """
