@@ -133,7 +133,7 @@ class FundamentalAgent(BaseAgent):
         else:
             reasoning_parts.append(f"财务健康需关注({health_score}/10)")
 
-        reasoning = " | ".join(reasoning_parts)
+        reasoning = " / ".join(reasoning_parts)
 
         self._logger.info(
             f"[{stock_code}] FundamentalAgent分析完成: {signal} (总分{total_score:.1f}/100, 置信度{confidence}%)"
@@ -374,7 +374,7 @@ class FundamentalAgent(BaseAgent):
         if volatility > 0:
             reasoning_parts.append(f"波动率{volatility:.1f}%")
 
-        reasoning = " | ".join(reasoning_parts) if reasoning_parts else "基于有限数据的基础分析"
+        reasoning = " / ".join(reasoning_parts) if reasoning_parts else "基于有限数据的基础分析"
 
         self._logger.info(
             f"[{stock_code}] FundamentalAgent简化分析完成: {signal} (基础评分{score:.1f}/100, 置信度{confidence}%)"

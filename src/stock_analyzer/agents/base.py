@@ -88,7 +88,7 @@ class AgentSignal:
         """从字典创建"""
         return cls(
             agent_name=data["agent_name"],
-            signal=SignalType.from_string(data.get("signal", "neutral")),
+            signal=SignalType.from_string(data.get("signal", "hold")),
             confidence=data.get("confidence", 0),
             reasoning=data.get("reasoning", ""),
             metadata=data.get("metadata", {}),

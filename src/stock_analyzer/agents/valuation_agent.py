@@ -184,7 +184,7 @@ class ValuationAgent(BaseAgent):
         if "graham_number" in valuations:
             reasoning_parts.append(f"Graham数¥{valuations['graham_number']:.2f}")
 
-        reasoning = " | ".join(reasoning_parts)
+        reasoning = " / ".join(reasoning_parts)
 
         self._logger.info(
             f"[{stock_code}] ValuationAgent分析完成: {signal} "

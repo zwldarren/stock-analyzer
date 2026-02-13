@@ -145,6 +145,7 @@ class LiteLLMClient:
                 if response and response.choices and len(response.choices) > 0:
                     content = response.choices[0].message.content
                     if content:
+                        logger.debug(f"[{self.model}] LLM响应: {content[:500]}...")
                         return content.strip()
 
                 raise AnalysisError(f"{self.model} 返回空响应")

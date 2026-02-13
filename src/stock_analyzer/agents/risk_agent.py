@@ -16,6 +16,7 @@ import logging
 import math
 from typing import Any
 
+from stock_analyzer.domain.constants import SIGNAL_BUY, SIGNAL_HOLD, SIGNAL_SELL, normalize_signal
 from stock_analyzer.domain.exceptions import handle_errors
 
 from .base import AgentSignal, BaseAgent, SignalType
@@ -111,7 +112,7 @@ class RiskAgent(BaseAgent):
         if risk_factors:
             reasoning_parts.append(f"风险因素: {len(risk_factors)}项")
 
-        reasoning = " | ".join(reasoning_parts)
+        reasoning = " / ".join(reasoning_parts)
 
         self._logger.info(
             f"[{stock_code}] RiskAgent分析完成: {signal} "
@@ -257,12 +258,21 @@ class RiskAgent(BaseAgent):
 
         # Signal divergence (0-30 points)
         if agent_signals:
-            signals = [s.get("signal", "neutral") for s in agent_signals.values()]
-            buy_count = signals.count("buy") + signals.count("cover")
-            sell_count = signals.count("sell") + signals.count("short")
-            hold_count = signals.count("hold") + signals.count("neutral")
+            # 标准化信号并计数
+            buy_count = 0
+            sell_count = 0
+            hold_count = 0
 
-            total = len(signals)
+            for s in agent_signals.values():
+                normalized = normalize_signal(s.get("signal", SIGNAL_HOLD))
+                if normalized == SIGNAL_BUY:
+                    buy_count += 1
+                elif normalized == SIGNAL_SELL:
+                    sell_count += 1
+                else:
+                    hold_count += 1
+
+            total = len(agent_signals)
             if total > 0:
                 # High divergence = high risk
                 max_consensus = max(buy_count, sell_count, hold_count)
@@ -298,9 +308,16 @@ class RiskAgent(BaseAgent):
         if not agent_signals:
             return (SignalType.HOLD, 50)
 
-        signals = [s.get("signal", "neutral") for s in agent_signals.values()]
-        buy_count = signals.count("buy") + signals.count("cover")
-        sell_count = signals.count("sell") + signals.count("short")
+        # 标准化信号并计数
+        buy_count = 0
+        sell_count = 0
+
+        for s in agent_signals.values():
+            normalized = normalize_signal(s.get("signal", SIGNAL_HOLD))
+            if normalized == SIGNAL_BUY:
+                buy_count += 1
+            elif normalized == SIGNAL_SELL:
+                sell_count += 1
 
         # Base signal on majority
         if buy_count > sell_count:

@@ -56,7 +56,7 @@ NEUTRAL Indicators:
 
 Output Format:
 {
-    "signal": "buy|sell|hold|neutral",
+    "signal": "buy|sell|hold",
     "confidence": 75,
     "reasoning": "Concise analysis in Chinese",
     "sentiment": "bullish|bearish|neutral",
@@ -93,12 +93,11 @@ NEWS_SENTIMENT_USER_PROMPT_TEMPLATE = """请作为专业的新闻情绪分析师
 - BUY: 强烈看多，多篇重大利好
 - SELL: 看空，多篇重大利空
 - HOLD: 中性或不确定，建议持有观望
-- NEUTRAL: 无明显信号
 
 === 输出要求 ===
 请严格按照JSON格式输出，所有分析理由使用中文：
 {{
-    "signal": "buy|sell|hold|neutral",
+    "signal": "buy|sell|hold",
     "confidence": 75,
     "reasoning": "详细的中文分析解释",
     "sentiment": "bullish|bearish|neutral",

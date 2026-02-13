@@ -119,9 +119,6 @@ class ReportGenerator:
             for agent_name, signal in agent_signals.items():
                 confidence = agent_confidences.get(agent_name, 0)
                 reasoning = agent_reasonings.get(agent_name, "")
-                # Truncate reasoning if too long (increased from 50 to 200 chars)
-                if len(reasoning) > 200:
-                    reasoning = reasoning[:197] + "..."
                 signal_emoji = get_signal_emoji(signal)
                 lines.append(f"| {agent_name} | {signal_emoji} {signal} | {confidence}% | {reasoning} |")
 

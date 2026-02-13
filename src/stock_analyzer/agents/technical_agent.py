@@ -51,7 +51,7 @@ Trading Philosophy:
 
 Output must be valid JSON:
 {
-    "signal": "buy|sell|hold|neutral",
+    "signal": "buy|sell|hold",
     "confidence": 75,
     "reasoning": "Detailed technical analysis explanation",
     "trend_assessment": "strong_bullish|bullish|neutral|bearish|strong_bearish",
@@ -233,7 +233,7 @@ class TechnicalAgent(BaseAgent):
             result = json_repair.repair_json(response, return_objects=True)
 
             if result and isinstance(result, dict) and "signal" in result:
-                self._logger.debug(f"[{stock_code}] LLM技术分析成功")
+                self._logger.debug(f"[{stock_code}] LLM技术分析成功: {result}")
                 return result
             else:
                 self._logger.warning(f"[{stock_code}] LLM技术分析返回格式无效")
@@ -280,7 +280,7 @@ class TechnicalAgent(BaseAgent):
 
 请严格按照JSON格式输出：
 {{
-    "signal": "buy|sell|short|cover|hold|neutral",
+    "signal": "buy|sell|hold",
     "confidence": 75,
     "reasoning": "详细的技术分析解释",
     "trend_assessment": "strong_bullish|bullish|neutral|bearish|strong_bearish",
@@ -298,7 +298,7 @@ class TechnicalAgent(BaseAgent):
 
     def _build_signal_from_llm(self, llm_analysis: dict[str, Any], technical_data: dict[str, Any]) -> AgentSignal:
         """Build AgentSignal from LLM analysis."""
-        signal_str = llm_analysis.get("signal", "neutral")
+        signal_str = llm_analysis.get("signal", "hold")
         signal = SignalType.from_string(signal_str)
         confidence = llm_analysis.get("confidence", 50)
         reasoning = llm_analysis.get("reasoning", "无详细分析")
@@ -311,7 +311,7 @@ class TechnicalAgent(BaseAgent):
             confidence=confidence,
             reasoning=reasoning,
             metadata={
-                "trend_assessment": llm_analysis.get("trend_assessment", "neutral"),
+                "trend_assessment": llm_analysis.get("trend_assessment", "hold"),
                 "trend_strength": llm_analysis.get("trend_strength", 50),
                 "key_levels": key_levels,
                 "technical_factors": llm_analysis.get("technical_factors", []),
@@ -324,7 +324,7 @@ class TechnicalAgent(BaseAgent):
                 if technical_data["is_bullish"]
                 else "bearish"
                 if technical_data["is_bearish"]
-                else "neutral",
+                else "hold",
                 "volume_status": technical_data["volume_status"],
                 "support_level": round(technical_data["support"], 2),
                 "resistance_level": round(technical_data["resistance"], 2),

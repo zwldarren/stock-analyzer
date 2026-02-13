@@ -143,7 +143,7 @@ class NewsSentimentAgent(BaseAgent):
                 )
 
             # Extract signal from LLM analysis
-            signal_str = llm_analysis.get("signal", "neutral")
+            signal_str = llm_analysis.get("signal", "hold")
             signal = SignalType.from_string(signal_str)
             confidence = llm_analysis.get("confidence", 50)
             reasoning = llm_analysis.get("reasoning", "无详细理由")

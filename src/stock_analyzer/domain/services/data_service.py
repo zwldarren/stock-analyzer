@@ -256,6 +256,21 @@ class DataService:
             return [], []
         return self._fetcher_manager.get_sector_rankings(n)
 
+    def prefetch_realtime_quotes(self, stock_codes: list[str]) -> int:
+        """
+        批量预取实时行情数据以优化性能
+
+        Args:
+            stock_codes: 股票代码列表
+
+        Returns:
+            预取成功的股票数量
+        """
+        if self._fetcher_manager is None:
+            logger.debug("[DataService] 数据获取器未配置，跳过预取")
+            return 0
+        return self._fetcher_manager.prefetch_realtime_quotes(stock_codes)
+
     def get_stock_industry(self, stock_code: str) -> dict[str, Any] | None:
         """
         获取股票所属行业信息

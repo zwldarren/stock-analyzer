@@ -281,10 +281,9 @@ def _prefetch_realtime_quotes(stock_codes: list[str]) -> None:
     """批量预取实时行情数据以优化性能"""
     try:
         data_service = get_data_service()
-        if hasattr(data_service, "_fetcher_manager") and data_service._fetcher_manager is not None:
-            prefetch_count = data_service._fetcher_manager.prefetch_realtime_quotes(stock_codes)
-            if prefetch_count > 0:
-                logger.info(f"已启用批量预取架构：一次拉取全市场数据，{len(stock_codes)} 只股票共享缓存")
+        prefetch_count = data_service.prefetch_realtime_quotes(stock_codes)
+        if prefetch_count > 0:
+            logger.info(f"已启用批量预取架构：一次拉取全市场数据，{len(stock_codes)} 只股票共享缓存")
     except Exception as e:
         logger.debug(f"批量预取实时行情失败: {e}")
 

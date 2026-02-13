@@ -674,7 +674,7 @@ class StyleAgent(BaseAgent):
         if not parts:
             parts.append(f"风格均衡(价值{value_score:.0f}/成长{growth_score:.0f}/动量{momentum_score:.0f})")
 
-        return " | ".join(parts)
+        return " / ".join(parts)
 
     def _get_value_breakdown(self, valuation_data: dict, financial_data: dict) -> dict:
         """Get value analysis breakdown."""

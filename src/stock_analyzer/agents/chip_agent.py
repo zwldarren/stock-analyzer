@@ -48,12 +48,11 @@ Signal Generation Rules:
 - BUY: High concentration, low-medium profit ratio, price near cost
 - SELL: High profit ratio, signs of distribution, price far above cost
 - SHORT: Extreme overvaluation, high profit ratio, clear distribution signs
-- HOLD: Mixed signals or transition phase
-- NEUTRAL: Low concentration, retail-dominated
+- HOLD: Mixed signals or transition phase, or low concentration, retail-dominated
 
 Output must be valid JSON:
 {
-    "signal": "buy|sell|short|cover|hold|neutral",
+    "signal": "buy|sell|short|cover|hold",
     "confidence": 75,
     "reasoning": "Detailed chip analysis explanation",
     "control_assessment": "高度控盘|中度控盘|轻度控盘|散户主导",
@@ -254,7 +253,7 @@ class ChipAgent(BaseAgent):
 
 请严格按照JSON格式输出：
 {{
-    "signal": "buy|sell|short|cover|hold|neutral",
+    "signal": "buy|sell|hold",
     "confidence": 75,
     "reasoning": "详细的筹码分析解释",
     "control_assessment": "高度控盘|中度控盘|轻度控盘|散户主导",
@@ -266,7 +265,7 @@ class ChipAgent(BaseAgent):
 
     def _build_signal_from_llm(self, llm_analysis: dict[str, Any], chip_metrics: dict[str, Any]) -> AgentSignal:
         """Build AgentSignal from LLM analysis."""
-        signal_str = llm_analysis.get("signal", "neutral")
+        signal_str = llm_analysis.get("signal", "hold")
         confidence = llm_analysis.get("confidence", 50)
         reasoning = llm_analysis.get("reasoning", "无详细分析")
 

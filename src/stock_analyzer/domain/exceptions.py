@@ -25,51 +25,59 @@ class StockAnalyzerException(Exception):
 
 
 class DataFetchError(StockAnalyzerException):
-    """数据获取失败"""
+    """数据获取失败异常"""
 
-    pass
+    def __init__(self, message: str = "数据获取失败", code: str | None = None):
+        super().__init__(message, code)
 
 
 class RateLimitError(DataFetchError):
-    """API 速率限制异常"""
+    """API 速率限制异常，当API请求频率超过限制时抛出"""
 
-    pass
+    def __init__(self, message: str = "API请求频率超限，请稍后重试", code: str | None = None):
+        super().__init__(message, code)
 
 
 class DataSourceUnavailableError(DataFetchError):
-    """数据源不可用异常"""
+    """数据源不可用异常，当指定的数据源暂时无法访问时抛出"""
 
-    pass
+    def __init__(self, message: str = "数据源暂时不可用", code: str | None = None):
+        super().__init__(message, code)
 
 
 class StorageError(StockAnalyzerException):
-    """数据存储失败"""
+    """数据存储失败异常，当数据库操作或文件写入失败时抛出"""
 
-    pass
+    def __init__(self, message: str = "数据存储失败", code: str | None = None):
+        super().__init__(message, code)
 
 
 class ValidationError(StockAnalyzerException):
-    """数据验证失败"""
+    """数据验证失败异常，当输入数据不符合预期格式或范围时抛出"""
 
-    pass
+    def __init__(self, message: str = "数据验证失败", code: str | None = None):
+        super().__init__(message, code)
 
 
 class AnalysisError(StockAnalyzerException):
-    """分析过程错误"""
+    """分析过程错误异常，当AI分析或计算过程中发生错误时抛出"""
 
-    pass
+    def __init__(self, message: str = "分析过程出错", code: str | None = None):
+        super().__init__(message, code)
 
 
 class NotificationError(StockAnalyzerException):
-    """通知发送失败"""
+    """通知发送失败异常，当消息推送失败时抛出"""
 
-    pass
+    def __init__(self, message: str = "通知发送失败", code: str | None = None):
+        super().__init__(message, code)
 
 
 class ConfigurationError(StockAnalyzerException):
-    """配置错误"""
+    """配置错误异常，当配置项缺失或无效时抛出"""
 
-    pass
+    def __init__(self, message: str = "配置错误", code: str | None = None):
+        super().__init__(message, code)
 
 
 def handle_errors(

@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
 
+from stock_analyzer.domain.constants import SIGNAL_BUY, SIGNAL_HOLD, SIGNAL_SELL, normalize_signal
 from stock_analyzer.domain.exceptions import ValidationError
 
 from .base import BaseAgent
@@ -139,7 +140,7 @@ class AgentCoordinator:
                 self._logger.debug(f"[{stock_code}] Agent {name} 不可用，跳过")
                 results[name] = AgentAnalysisResult(
                     agent_name=name,
-                    signal="neutral",
+                    signal=SIGNAL_HOLD,
                     confidence=0,
                     reasoning="Agent不可用",
                     success=False,
@@ -158,23 +159,26 @@ class AgentCoordinator:
                 self._logger.info(f"[{stock_code}] 执行Agent: {name}")
                 signal = agent.analyze(context)
 
+                # 标准化信号类型
+                normalized_signal = normalize_signal(signal.signal.to_string())
+
                 result = AgentAnalysisResult(
                     agent_name=name,
-                    signal=signal.signal.to_string(),
+                    signal=normalized_signal,
                     confidence=signal.confidence,
                     reasoning=signal.reasoning,
                     metadata=signal.metadata,
                     success=True,
                 )
 
-                self._logger.info(f"[{stock_code}] Agent {name} 完成: {signal.signal} (置信度{signal.confidence}%)")
+                self._logger.info(f"[{stock_code}] Agent {name} 完成: {normalized_signal} (置信度{signal.confidence}%)")
                 return name, result
 
             except Exception as e:
                 self._logger.error(f"[{stock_code}] Agent {name} 执行失败: {e}")
                 result = AgentAnalysisResult(
                     agent_name=name,
-                    signal="neutral",
+                    signal=SIGNAL_HOLD,
                     confidence=0,
                     reasoning=f"执行失败: {str(e)}",
                     success=False,
@@ -241,14 +245,21 @@ class AgentCoordinator:
         if not results:
             return 0.0
 
-        signals = [r.signal for r in results]
+        # 标准化信号并计数
+        buy_count = 0
+        sell_count = 0
+        hold_count = 0
 
-        # Count each signal type
-        buy_count = signals.count("buy")
-        sell_count = signals.count("sell")
-        hold_count = signals.count("hold") + signals.count("neutral")
+        for r in results:
+            normalized = normalize_signal(r.signal)
+            if normalized == SIGNAL_BUY:
+                buy_count += 1
+            elif normalized == SIGNAL_SELL:
+                sell_count += 1
+            else:  # hold
+                hold_count += 1
 
-        total = len(signals)
+        total = len(results)
         max_consensus = max(buy_count, sell_count, hold_count)
 
         return max_consensus / total if total > 0 else 0.0

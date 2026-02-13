@@ -168,6 +168,24 @@ class AIAnalyzer(IAIAnalyzer):
                 context=context,
             )
 
+            # Step 6: Populate debug fields (data_sources and raw_response)
+            result.data_sources = self._collect_data_sources(agent_signals)
+            result.raw_response = {
+                "final_decision": {
+                    "action": final_signal.metadata.get("action", final_signal.signal.to_string()),
+                    "signal": final_signal.signal,
+                    "confidence": final_signal.confidence,
+                    "reasoning": final_signal.reasoning,
+                    "metadata": final_signal.metadata,
+                },
+                "agent_signals": agent_signals,
+                "consensus": {
+                    "consensus_level": consensus_level,
+                    "participating_agents": consensus.participating_agents,
+                    "risk_flags": consensus.risk_flags,
+                },
+            }
+
             return result
 
         except Exception as e:
@@ -229,7 +247,6 @@ class AIAnalyzer(IAIAnalyzer):
         signal_to_decision = {
             "buy": "buy",
             "hold": "hold",
-            "neutral": "hold",  # Neutral maps to hold
             "sell": "sell",
         }
         decision_type = signal_to_decision.get(final_signal.signal, "hold")
@@ -436,6 +453,11 @@ class AIAnalyzer(IAIAnalyzer):
 
         return snapshot
 
+    def _collect_data_sources(self, agent_signals: dict[str, Any]) -> str:
+        """Collect data source information from agent signals."""
+        agent_names = list(agent_signals.keys())
+        return ", ".join(agent_names) if agent_names else "multi-agent"
+
     @staticmethod
     def _format_price(value: float | None) -> str:
         """Format price value for display."""
@@ -460,18 +482,16 @@ class AIAnalyzer(IAIAnalyzer):
         self,
         contexts: list[dict[str, Any]],
         delay_between: float = 2.0,
-        news_contexts: list[str | None] | None = None,
     ) -> list[AnalysisResult]:
         """
-        批量分析多只股票
+        Batch analyze multiple stocks.
 
         Args:
-            contexts: 上下文数据列表
-            delay_between: 每次分析之间的延迟（秒）
-            news_contexts: 新闻上下文列表（与contexts一一对应，已集成到context中）
+            contexts: Context data list
+            delay_between: Delay between analyses in seconds
 
         Returns:
-            AnalysisResult 列表
+            List of AnalysisResult
         """
         import time
 
@@ -482,7 +502,7 @@ class AIAnalyzer(IAIAnalyzer):
                 logger.debug(f"等待 {delay_between} 秒后继续...")
                 time.sleep(delay_between)
 
-            result = self.analyze(context, news_context=None)
+            result = self.analyze(context)
             results.append(result)
 
         return results
