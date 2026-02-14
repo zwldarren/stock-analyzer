@@ -325,6 +325,43 @@ class EfinanceFetcher(BaseFetcher):
         existing_cols = [col for col in keep_cols if col in df.columns]
         df = df[existing_cols]
 
+        # 数据清洗：处理缺失值
+        # 1. 删除完全空白的行
+        df = df.dropna(how="all")
+
+        # 2. 删除关键字段（open/high/low/close）缺失的行
+        key_cols = ["open", "high", "low", "close"]
+        if all(col in df.columns for col in key_cols):
+            before_len = len(df)
+            df = df.dropna(subset=key_cols)
+            if len(df) < before_len:
+                logger.debug(f"[数据清洗] 移除了 {before_len - len(df)} 行包含缺失OHLC数据的记录")
+
+        # 3. 如果 high/low 缺失，用 open/close 推断
+        if "high" in df.columns and "low" in df.columns:
+            # 对于 high，取 open/close 的最大值
+            mask_high_na = df["high"].isna()
+            if mask_high_na.any():
+                df.loc[mask_high_na, "high"] = df.loc[mask_high_na, ["open", "close"]].max(axis=1)
+                logger.debug(f"[数据清洗] 填充了 {mask_high_na.sum()} 个缺失的 high 值")
+
+            # 对于 low，取 open/close 的最小值
+            mask_low_na = df["low"].isna()
+            if mask_low_na.any():
+                df.loc[mask_low_na, "low"] = df.loc[mask_low_na, ["open", "close"]].min(axis=1)
+                logger.debug(f"[数据清洗] 填充了 {mask_low_na.sum()} 个缺失的 low 值")
+
+        # 4. 确保 volume 列没有 NaN（设为0）
+        if "volume" in df.columns:
+            df["volume"] = df["volume"].fillna(0)
+
+        # 5. 确保 amount 列没有 NaN（设为0）
+        if "amount" in df.columns:
+            df["amount"] = df["amount"].fillna(0)
+
+        # 6. 重置索引
+        df = df.reset_index(drop=True)
+
         return df
 
     def get_realtime_quote(self, stock_code: str, **kwargs) -> UnifiedRealtimeQuote | None:

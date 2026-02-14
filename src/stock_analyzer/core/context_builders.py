@@ -35,6 +35,11 @@ def _get_default_technical_indicators(current_price: float = 0.0, ma20: float = 
     bb_middle = ma20 if ma20 > 0 else current_price
     bb_width = bb_middle * 0.04 if bb_middle > 0 else 0.0  # 4% total width (2% each side)
 
+    logger.debug(
+        f"[技术指标] 使用默认值计算 - 当前价格: {current_price:.2f}, MA20: {ma20:.2f}, "
+        f"布林中轨: {bb_middle:.2f}, ATR估计: {estimated_atr:.4f}"
+    )
+
     return {
         "adx": 20.0,
         "rsi_14": 50.0,
@@ -120,6 +125,14 @@ def build_technical_context(daily_data: pd.DataFrame | None) -> dict[str, Any]:
         "volume_ratio": latest.get("volume_ratio"),
     }
 
+    # Build technical indicators and add to context["today"]
+    # This is needed because technical_agent expects indicators in the "today" dict
+    technical_indicators = build_technical_indicators(daily_data)
+    if technical_indicators:
+        context["today"].update(technical_indicators)
+        # Also store in context["technical_data"] for other consumers
+        context["technical_data"] = technical_indicators
+
     # Calculate MA status
     close = latest.get("close") or 0
     ma5 = latest.get("ma5") or 0
@@ -163,8 +176,8 @@ def build_technical_indicators(daily_data: pd.DataFrame | None) -> dict[str, Any
     technical_data: dict[str, Any] = {}
     technical_data["current_price"] = float(daily_data["close"].iloc[-1])
     technical_data["ma20"] = float(daily_data["ma20"].iloc[-1]) if "ma20" in daily_data.columns else 0
-    technical_data["ma60"] = float(daily_data["ma60"].iloc[-1])
-    technical_data["ma120"] = float(daily_data["ma120"].iloc[-1])
+    technical_data["ma60"] = float(daily_data["ma60"].iloc[-1]) if "ma60" in daily_data.columns else 0
+    technical_data["ma120"] = float(daily_data["ma120"].iloc[-1]) if "ma120" in daily_data.columns else 0
 
     # MA alignment detection
     current = technical_data["current_price"]
@@ -199,12 +212,23 @@ def build_technical_indicators(daily_data: pd.DataFrame | None) -> dict[str, Any
 
     # Calculate advanced technical indicators using the new module
     if all(col in daily_data.columns for col in ["high", "low", "close"]):
-        high_prices = daily_data["high"].dropna().tolist()
-        low_prices = daily_data["low"].dropna().tolist()
-        close_prices = daily_data["close"].dropna().tolist()
+        # Fix: Filter out rows with NaN in any of the required columns to ensure consistent data
+        valid_data = daily_data[["high", "low", "close"]].dropna()
 
-        # Only calculate if we have enough data
-        if len(high_prices) >= 30 and len(low_prices) >= 30 and len(close_prices) >= 30:
+        logger.debug(
+            f"[技术指标] 原始数据: {len(daily_data)} 行, 有效数据(去除NaN): {len(valid_data)} 行, 需要 >= 30 行才能计算"
+        )
+
+        # Only calculate if we have enough valid data
+        if len(valid_data) >= 30:
+            high_prices = valid_data["high"].tolist()
+            low_prices = valid_data["low"].tolist()
+            close_prices = valid_data["close"].tolist()
+
+            logger.debug(
+                f"[技术指标] 开始计算 - high_prices: {len(high_prices)} 条, "
+                f"low_prices: {len(low_prices)} 条, close_prices: {len(close_prices)} 条"
+            )
             try:
                 advanced_indicators = calculate_all_indicators(
                     high_prices=high_prices,
@@ -244,6 +268,10 @@ def build_technical_indicators(daily_data: pd.DataFrame | None) -> dict[str, Any
                 technical_data.update(_get_default_technical_indicators(technical_data["current_price"], ma20))
         else:
             # Not enough data for advanced indicators
+            logger.warning(
+                f"[技术指标] 数据不足，无法计算高级指标 - 需要 >= 30 行有效数据，"
+                f"实际只有 {len(valid_data)} 行，将使用默认值"
+            )
             ma20 = technical_data.get("ma20", 0)
             technical_data.update(_get_default_technical_indicators(technical_data["current_price"], ma20))
     else:

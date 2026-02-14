@@ -153,7 +153,7 @@ class ReportGenerator:
                 price = str(snapshot.get("price", "N/A")).replace("**", "").replace("*", "")
                 volume_ratio = str(snapshot.get("volume_ratio", "N/A")).replace("**", "").replace("*", "")
                 turnover_rate = str(snapshot.get("turnover_rate", "N/A")).replace("**", "").replace("*", "")
-                lines.append(f"**当前价**: {price} | **量比**: {volume_ratio} | **换手率**: {turnover_rate}%")
+                lines.append(f"**当前价**: {price} | **量比**: {volume_ratio} | **换手率**: {turnover_rate}")
                 lines.append("")
 
         # Risk warning

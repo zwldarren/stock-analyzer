@@ -50,20 +50,7 @@ def cli(
     no_context_snapshot: bool,
     skip_config_check: bool,
 ) -> int:
-    """A股自选股智能分析系统
-
-    Examples:
-
-        \b
-        stock-analyzer                    # 正常运行
-        stock-analyzer --debug            # 调试模式
-        stock-analyzer --dry-run          # 仅获取数据，不进行 AI 分析
-        stock-analyzer --stocks 600519,000001  # 指定分析特定股票
-        stock-analyzer --no-notify        # 不发送推送通知
-        stock-analyzer --single-notify    # 启用单股推送模式
-        stock-analyzer --schedule         # 启用定时任务模式
-        stock-analyzer init               # 运行配置初始化向导
-    """
+    """A股自选股智能分析系统"""
     # 如果没有子命令，运行主程序
     if ctx.invoked_subcommand is None:
         return run_main(
