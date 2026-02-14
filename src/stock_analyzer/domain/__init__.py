@@ -55,7 +55,6 @@ __all__ = [
     "SIGNAL_SELL",
     "SIGNAL_HOLD",
     "SIGNAL_EMOJI_MAP",
-    "ACTION_EMOJI_MAP",
     "ALERT_TYPE_EMOJI_MAP",
     "REPORT_EMOJI",
     # Functions

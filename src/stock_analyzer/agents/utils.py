@@ -26,6 +26,44 @@ class FinancialScorer:
         - Interest Coverage > 5: +2, > 3: +1
         - Free Cash Flow positive: +2
         """
+        # Reuse shared balance sheet strength scoring
+        score = FinancialScorer._score_balance_sheet_strength(data)
+
+        # Free cash flow scoring
+        fcf = data.get("free_cash_flow", 0)
+        if fcf > 0:
+            score += 2
+
+        return min(score, 10)
+
+    @staticmethod
+    def analyze_safety(data: dict[str, Any]) -> int:
+        """
+        Analyze balance sheet safety (0-10 scale).
+
+        Scoring:
+        - Debt-to-Equity < 0.3: +3, < 0.5: +2, < 1.0: +1
+        - Current Ratio > 2.0: +3, > 1.5: +2, > 1.0: +1
+        - Interest Coverage > 5: +2, > 3: +1
+        - Net cash position: +2
+        """
+        # Reuse financial health scoring for common metrics
+        score = FinancialScorer._score_balance_sheet_strength(data)
+
+        # Net cash position (specific to safety analysis)
+        if data.get("net_cash_position", False):
+            score += 2
+
+        return min(score, 10)
+
+    @staticmethod
+    def _score_balance_sheet_strength(data: dict[str, Any]) -> int:
+        """
+        Score balance sheet strength metrics (shared logic).
+
+        Returns:
+            Base score (0-8) from debt-to-equity, current ratio, and interest coverage
+        """
         score = 0
 
         # Debt-to-equity scoring (lower is better)
@@ -53,56 +91,7 @@ class FinancialScorer:
         elif interest_coverage > 3:
             score += 1
 
-        # Free cash flow scoring
-        fcf = data.get("free_cash_flow", 0)
-        if fcf > 0:
-            score += 2
-
-        return min(score, 10)
-
-    @staticmethod
-    def analyze_safety(data: dict[str, Any]) -> int:
-        """
-        Analyze balance sheet safety (0-10 scale).
-
-        Scoring:
-        - Debt-to-Equity < 0.3: +3, < 0.5: +2, < 1.0: +1
-        - Current Ratio > 2.0: +3, > 1.5: +2, > 1.0: +1
-        - Interest Coverage > 5: +2, > 3: +1
-        - Net cash position: +2
-        """
-        score = 0
-
-        # Debt-to-equity
-        dte = data.get("debt_to_equity", 0)
-        if dte < 0.3:
-            score += 3
-        elif dte < 0.5:
-            score += 2
-        elif dte < 1.0:
-            score += 1
-
-        # Current ratio
-        current_ratio = data.get("current_ratio", 0)
-        if current_ratio > 2.0:
-            score += 3
-        elif current_ratio > 1.5:
-            score += 2
-        elif current_ratio > 1.0:
-            score += 1
-
-        # Interest coverage
-        interest_coverage = data.get("interest_coverage", 0)
-        if interest_coverage > 5:
-            score += 2
-        elif interest_coverage > 3:
-            score += 1
-
-        # Net cash position
-        if data.get("net_cash_position", False):
-            score += 2
-
-        return min(score, 10)
+        return score
 
     @staticmethod
     def analyze_profitability(data: dict[str, Any]) -> int:

@@ -48,9 +48,6 @@ uv run stock-analyzer --debug
 # Analyze specific stocks
 uv run stock-analyzer --stocks 600519,000001
 
-# Market review only
-uv run stock-analyzer --market-review
-
 # Scheduled mode (runs daily)
 uv run stock-analyzer --schedule
 

@@ -293,37 +293,6 @@ class AIAnalyzer(IAIAnalyzer):
             success=True,
         )
 
-    def _get_consensus_advice(self, agent_signals: dict[str, Any]) -> str:
-        """Generate consensus advice from agent signals."""
-        buy_agents = [k for k, v in agent_signals.items() if v["signal"] == "buy"]
-        sell_agents = [k for k, v in agent_signals.items() if v["signal"] == "sell"]
-
-        if len(buy_agents) > len(sell_agents):
-            return f"{len(buy_agents)}个Agent建议买入"
-        elif len(sell_agents) > len(buy_agents):
-            return f"{len(sell_agents)}个Agent建议卖出"
-        return "Agent意见分歧，建议观望"
-
-    def _get_no_position_advice(self, final_decision: Any) -> str:
-        """Generate advice for users without existing position."""
-        if final_decision.signal == "buy":
-            if final_decision.confidence >= 70:
-                return "可小仓位试探性买入"
-            return "等待更明确信号"
-        elif final_decision.signal == "sell":
-            return "回避，不介入"
-        return "继续观望"
-
-    def _get_has_position_advice(self, final_decision: Any) -> str:
-        """Generate advice for users with existing position."""
-        if final_decision.signal == "sell":
-            if final_decision.confidence >= 70:
-                return "考虑减仓或止盈"
-            return "提高警惕，设置止损"
-        elif final_decision.signal == "buy":
-            return "继续持有，关注加仓机会"
-        return "继续持有，关注风险信号"
-
     def _build_decision_dashboard(
         self,
         final_signal: Any,
@@ -386,18 +355,6 @@ class AIAnalyzer(IAIAnalyzer):
             parts.append(f"{name}: {signal['signal']}({signal['confidence']})")
 
         return " | ".join(parts)
-
-    def _get_suggested_position(self, final_decision: Any) -> str:
-        """Calculate suggested position size based on confidence."""
-        if final_decision.signal == "buy":
-            if final_decision.confidence >= 80:
-                return "3-5成"
-            elif final_decision.confidence >= 60:
-                return "1-3成"
-            return "轻仓试探"
-        elif final_decision.signal == "sell":
-            return "减仓或清仓"
-        return "保持现有仓位"
 
     def _score_to_confidence(self, score: int) -> str:
         """Convert numeric score to confidence level text."""
@@ -507,7 +464,3 @@ class AIAnalyzer(IAIAnalyzer):
         return results
 
 
-# 便捷函数
-def get_analyzer() -> AIAnalyzer:
-    """获取 AI 分析器实例"""
-    return AIAnalyzer()

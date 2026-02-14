@@ -278,11 +278,6 @@ class AgentSystemConfig(BaseSettings):
             return []  # Empty means all enabled
         return [agent.strip() for agent in self.enabled_agents_str.split(",") if agent.strip()]
 
-    @property
-    def enabled_agents_list(self) -> list[str]:
-        """Return enabled agents list directly."""
-        return self.enabled_agents
-
 
 # ==========================================
 # Main configuration class
