@@ -378,11 +378,6 @@ class DataFetcherManager:
 
         config = get_config()
 
-        # 如果实时行情功能被禁用，直接返回 None
-        if not config.realtime_quote.enable_realtime_quote:
-            logger.debug(f"[实时行情] 功能已禁用，跳过 {stock_code}")
-            return None
-
         # 美股单独处理
         if is_us_code(stock_code):
             for fetcher in self._fetchers:
@@ -446,13 +441,7 @@ class DataFetcherManager:
         Returns:
             ChipDistribution 对象，失败返回 None
         """
-        from stock_analyzer.config import get_config
         from stock_analyzer.infrastructure.data_sources.realtime_types import get_chip_circuit_breaker
-
-        config = get_config()
-
-        if not config.realtime_quote.enable_chip_distribution:
-            return None
 
         circuit_breaker = get_chip_circuit_breaker()
 
@@ -572,10 +561,6 @@ class DataFetcherManager:
         from stock_analyzer.config import get_config
 
         config = get_config()
-
-        # 如果实时行情被禁用，跳过预取
-        if not config.realtime_quote.enable_realtime_quote:
-            return 0
 
         # 检查优先级中是否包含全量拉取数据源
         priority = config.realtime_quote.realtime_source_priority.lower()

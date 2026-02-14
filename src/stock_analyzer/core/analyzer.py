@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 def analyze_stock(
     stock_code: str,
-    save_context_snapshot: bool = True,
 ) -> AnalysisResult:
     """
     Analyze a single stock using the multi-agent system.
@@ -39,7 +38,6 @@ def analyze_stock(
 
     Args:
         stock_code: Stock code to analyze
-        save_context_snapshot: Whether to save context to database
 
     Returns:
         AnalysisResult with trading decision and reasoning
@@ -78,7 +76,6 @@ def analyze_stock(
             result=result,
             query_id="",
             news_content=news_context,
-            save_snapshot=save_context_snapshot,
         )
         logger.info(f"分析完成: {result.operation_advice}")
     else:
@@ -90,7 +87,6 @@ def analyze_stock(
 def batch_analyze(
     stock_codes: list[str],
     max_workers: int = 3,
-    save_context_snapshot: bool = True,
 ) -> list[AnalysisResult]:
     """
     Batch analyze multiple stocks concurrently.
@@ -98,7 +94,6 @@ def batch_analyze(
     Args:
         stock_codes: List of stock codes to analyze
         max_workers: Maximum concurrent workers
-        save_context_snapshot: Whether to save context to database
 
     Returns:
         List of successful AnalysisResult objects
@@ -109,7 +104,7 @@ def batch_analyze(
 
     # Use thread pool for concurrent analysis
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_code = {executor.submit(analyze_stock, code, save_context_snapshot): code for code in stock_codes}
+        future_to_code = {executor.submit(analyze_stock, code): code for code in stock_codes}
 
         for future in as_completed(future_to_code):
             code = future_to_code[future]

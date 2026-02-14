@@ -1,7 +1,6 @@
 """Configuration management module."""
 
 from stock_analyzer.config.config import (
-    AgentSystemConfig,
     AIConfig,
     Config,
     DatabaseConfig,
@@ -33,5 +32,4 @@ __all__ = [
     "SystemConfig",
     "ScheduleConfig",
     "RealtimeQuoteConfig",
-    "AgentSystemConfig",
 ]

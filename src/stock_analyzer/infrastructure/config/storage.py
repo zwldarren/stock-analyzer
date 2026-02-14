@@ -97,7 +97,6 @@ class ConfigConverter:
 
         db = config.database
         result["DATABASE_PATH"] = db.database_path
-        result["SAVE_CONTEXT_SNAPSHOT"] = db.save_context_snapshot
 
         log = config.logging
         result["LOG_DIR"] = log.log_dir

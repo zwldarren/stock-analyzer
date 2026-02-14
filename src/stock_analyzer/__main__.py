@@ -35,8 +35,6 @@ from stock_analyzer.utils.logging_config import setup_logging
 )
 @click.option("--workers", type=int, default=None, help="并发线程数（默认使用配置值）")
 @click.option("--schedule", is_flag=True, help="启用定时任务模式，每日定时执行")
-@click.option("--no-context-snapshot", is_flag=True, help="不保存分析上下文快照")
-@click.option("--skip-config-check", is_flag=True, help="跳过配置检查（高级用户）")
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -47,8 +45,6 @@ def cli(
     single_notify: bool,
     workers: int | None,
     schedule: bool,
-    no_context_snapshot: bool,
-    skip_config_check: bool,
 ) -> int:
     """A股自选股智能分析系统"""
     # 如果没有子命令，运行主程序
@@ -61,8 +57,6 @@ def cli(
             single_notify,
             workers,
             schedule,
-            no_context_snapshot,
-            skip_config_check,
         )
     return 0
 
@@ -75,26 +69,23 @@ def run_main(
     single_notify: bool,
     workers: int | None,
     schedule: bool,
-    no_context_snapshot: bool,
-    skip_config_check: bool,
 ) -> int:
     """运行主程序逻辑"""
-    # 检查配置（除非跳过）
-    if not skip_config_check:
-        config, errors = get_config_safe()
-        is_valid, missing = check_config_valid(config)
+    # 检查配置
+    config, errors = get_config_safe()
+    is_valid, missing = check_config_valid(config)
 
-        if not is_valid:
-            from rich.console import Console
+    if not is_valid:
+        from rich.console import Console
 
-            console = Console()
-            console.print("\n[bold yellow]⚠️ 未检测到有效配置[/bold yellow]")
-            console.print("\n[dim]缺少以下必需配置:[/dim]")
-            for item in missing:
-                console.print(f"  - {item}")
-            console.print("\n[dim]请运行以下命令完成初始化:[/dim]")
-            console.print("  [bold cyan]stock-analyzer init[/bold cyan]")
-            return 1
+        console = Console()
+        console.print("\n[bold yellow]⚠️ 未检测到有效配置[/bold yellow]")
+        console.print("\n[dim]缺少以下必需配置:[/dim]")
+        for item in missing:
+            console.print(f"  - {item}")
+        console.print("\n[dim]请运行以下命令完成初始化:[/dim]")
+        console.print("  [bold cyan]stock-analyzer init[/bold cyan]")
+        return 1
 
     # 加载配置（在设置日志前加载，以获取日志目录）
     config = get_config()
@@ -146,7 +137,6 @@ def run_main(
                     no_notify,
                     single_notify,
                     workers,
-                    no_context_snapshot,
                     debug,
                 )
 
@@ -165,7 +155,6 @@ def run_main(
             no_notify,
             single_notify,
             workers,
-            no_context_snapshot,
             debug,
         )
 
@@ -189,7 +178,6 @@ def run_full_analysis(
     no_notify: bool,
     single_notify: bool,
     workers: int | None,
-    no_context_snapshot: bool = False,
     debug: bool = False,
 ):
     """
@@ -201,9 +189,6 @@ def run_full_analysis(
         # 命令行参数 --single-notify 覆盖配置（#55）
         if single_notify:
             config.notification_message.single_stock_notify = True
-
-        # 确定是否保存上下文快照：命令行参数优先，否则使用配置
-        save_context_snapshot = not no_context_snapshot and config.database.save_context_snapshot
 
         # 获取股票列表
         if stock_codes is None:
@@ -233,7 +218,6 @@ def run_full_analysis(
                 stock_codes,
                 config,
                 max_workers,
-                save_context_snapshot,
                 no_notify,
             )
 
@@ -295,7 +279,6 @@ def _run_analysis_mode(
     stock_codes: list[str],
     config: Config,
     max_workers: int,
-    save_context_snapshot: bool,
     no_notify: bool,
 ) -> list:
     """正常分析模式"""
@@ -303,7 +286,6 @@ def _run_analysis_mode(
     results = batch_analyze(
         stock_codes=stock_codes,
         max_workers=max_workers,
-        save_context_snapshot=save_context_snapshot,
     )
 
     # 发送通知

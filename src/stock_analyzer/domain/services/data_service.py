@@ -106,10 +106,9 @@ class DataService:
         # 从数据源获取
         quote = self._fetcher_manager.get_realtime_quote(stock_code)
 
-        if quote is not None and self._config is not None:
-            # Update cache with configured TTL
-            ttl = self._config.realtime_quote.realtime_cache_ttl
-            self._set_cache(cache_key, quote, ttl)
+        if quote is not None:
+            # 默认缓存 10 分钟
+            self._set_cache(cache_key, quote, 600)
 
         return quote
 

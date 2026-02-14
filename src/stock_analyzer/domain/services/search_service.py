@@ -7,6 +7,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from stock_analyzer.domain.models.search import SearchResponse
+
 
 class ISearchService(ABC):
     """
@@ -18,7 +20,7 @@ class ISearchService(ABC):
 
     @abstractmethod
     def search_comprehensive_intel(
-        self, stock_code: str, stock_name: str, max_searches: int = 5
+        self, stock_code: str, stock_name: str, max_searches: int = 5, use_cache: bool = True
     ) -> dict[str, Any] | None:
         """
         综合情报搜索
@@ -33,6 +35,7 @@ class ISearchService(ABC):
             stock_code: 股票代码
             stock_name: 股票名称
             max_searches: 最大搜索次数
+            use_cache: 是否使用缓存
 
         Returns:
             dict[str, Any] | None: 各维度的搜索结果，失败返回None
@@ -79,9 +82,10 @@ class ISearchService(ABC):
         self,
         stock_code: str,
         stock_name: str,
-        max_results: int = 5,
+        max_results: int = 10,
         focus_keywords: list[str] | None = None,
-    ) -> Any:
+        use_cache: bool = True,
+    ) -> SearchResponse:
         """
         搜索股票相关新闻
 
@@ -90,6 +94,7 @@ class ISearchService(ABC):
             stock_name: 股票名称
             max_results: 最大返回结果数
             focus_keywords: 重点关注的关键词列表
+            use_cache: 是否使用缓存
 
         Returns:
             搜索结果对象

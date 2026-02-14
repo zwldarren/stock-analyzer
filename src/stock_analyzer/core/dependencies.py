@@ -79,7 +79,7 @@ def get_search_service() -> SearchService:
     Get search service instance (singleton).
 
     Search service provides web search capabilities for news
-    and market intelligence.
+    and market intelligence with database caching.
 
     Returns:
         SearchService singleton instance
@@ -87,7 +87,7 @@ def get_search_service() -> SearchService:
     from stock_analyzer.infrastructure.search.service import SearchService
 
     config = get_config()
-    return SearchService(
+    service = SearchService(
         bocha_keys=config.search.bocha_api_keys,
         tavily_keys=config.search.tavily_api_keys,
         brave_keys=config.search.brave_api_keys,
@@ -96,6 +96,9 @@ def get_search_service() -> SearchService:
         searxng_username=config.search.searxng_username,
         searxng_password=config.search.searxng_password,
     )
+    # Inject database for caching
+    service.set_db(get_db())
+    return service
 
 
 def get_notification_service(context: Any | None = None) -> NotificationService:

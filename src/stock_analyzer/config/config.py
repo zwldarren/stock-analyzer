@@ -183,7 +183,6 @@ class DatabaseConfig(BaseSettings):
     model_config = _COMMON_CONFIG
 
     database_path: str = Field(default="./data/stock_analysis.db", validation_alias="DATABASE_PATH")
-    save_context_snapshot: EnvBool = Field(default=True, validation_alias="SAVE_CONTEXT_SNAPSHOT")
 
 
 class LoggingConfig(BaseSettings):
@@ -228,13 +227,10 @@ class RealtimeQuoteConfig(BaseSettings):
 
     model_config = _COMMON_CONFIG
 
-    enable_realtime_quote: EnvBool = Field(default=True, validation_alias="ENABLE_REALTIME_QUOTE")
-    enable_chip_distribution: EnvBool = Field(default=True, validation_alias="ENABLE_CHIP_DISTRIBUTION")
     realtime_source_priority: str = Field(
         default="tencent,akshare_sina,efinance,akshare_em",
         validation_alias="REALTIME_SOURCE_PRIORITY",
     )
-    realtime_cache_ttl: int = Field(default=600, validation_alias="REALTIME_CACHE_TTL")
 
 
 class DataSourceConfig(BaseSettings):
@@ -251,32 +247,6 @@ class DataSourceConfig(BaseSettings):
     pytdx_priority: int = Field(default=2, ge=0, le=10, validation_alias="PYTDX_PRIORITY")
     baostock_priority: int = Field(default=3, ge=0, le=10, validation_alias="BAOSTOCK_PRIORITY")
     yfinance_priority: int = Field(default=4, ge=0, le=10, validation_alias="YFINANCE_PRIORITY")
-
-
-class AgentSystemConfig(BaseSettings):
-    """Agent system configuration."""
-
-    model_config = _COMMON_CONFIG
-
-    # Enabled agents list (comma-separated, empty means all enabled)
-    enabled_agents_str: str = Field(default="", validation_alias="ENABLED_AGENTS")
-
-    # Maximum parallel workers for agent execution
-    agent_max_workers: int = Field(default=5, ge=1, le=20, validation_alias="AGENT_MAX_WORKERS")
-
-    # Risk threshold for veto (0-100)
-    risk_veto_threshold: int = Field(default=70, ge=0, le=100, validation_alias="RISK_VETO_THRESHOLD")
-
-    # Minimum confidence to consider a signal
-    min_confidence_threshold: int = Field(default=30, ge=0, le=100, validation_alias="MIN_CONFIDENCE_THRESHOLD")
-
-    @computed_field
-    @property
-    def enabled_agents(self) -> list[str]:
-        """Parse enabled agents from comma-separated string."""
-        if not self.enabled_agents_str:
-            return []  # Empty means all enabled
-        return [agent.strip() for agent in self.enabled_agents_str.split(",") if agent.strip()]
 
 
 # ==========================================
@@ -314,7 +284,6 @@ class Config(BaseSettings):
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
     realtime_quote: RealtimeQuoteConfig = Field(default_factory=RealtimeQuoteConfig)
     datasource: DataSourceConfig = Field(default_factory=DataSourceConfig)
-    agent: AgentSystemConfig = Field(default_factory=AgentSystemConfig)
 
     @field_validator("stock_list_str", mode="before")
     @classmethod

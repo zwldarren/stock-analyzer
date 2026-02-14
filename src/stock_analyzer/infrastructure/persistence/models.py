@@ -167,7 +167,6 @@ class AnalysisHistory(Base):
     # 详细数据
     raw_result = Column(Text)
     news_content = Column(Text)
-    context_snapshot = Column(Text)
 
     created_at = Column(DateTime, default=datetime.now, index=True)
 
@@ -186,6 +185,5 @@ class AnalysisHistory(Base):
             "analysis_summary": self.analysis_summary,
             "raw_result": self.raw_result,
             "news_content": self.news_content,
-            "context_snapshot": self.context_snapshot,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

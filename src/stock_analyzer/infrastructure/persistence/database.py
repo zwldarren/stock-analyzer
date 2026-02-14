@@ -396,6 +396,14 @@ class DatabaseManager:
     def get_recent_news(self, code: str, days: int = 7, limit: int = 20) -> list[NewsIntel]:
         """
         获取指定股票最近 N 天的新闻情报
+
+        Args:
+            code: 股票代码
+            days: 获取天数（默认7天）
+            limit: 最大返回数量（默认20条）
+
+        Returns:
+            NewsIntel 对象列表（按发布日期降序）
         """
         cutoff_date = datetime.now() - timedelta(days=days)
 
@@ -403,8 +411,14 @@ class DatabaseManager:
             results = (
                 session.execute(
                     select(NewsIntel)
-                    .where(and_(NewsIntel.code == code, NewsIntel.fetched_at >= cutoff_date))
-                    .order_by(desc(NewsIntel.fetched_at))
+                    .where(
+                        and_(
+                            NewsIntel.code == code,
+                            (NewsIntel.published_date >= cutoff_date)
+                            | (NewsIntel.published_date.is_(None)),  # Include news without published_date
+                        )
+                    )
+                    .order_by(desc(NewsIntel.published_date), desc(NewsIntel.fetched_at))
                     .limit(limit)
                 )
                 .scalars()
@@ -418,8 +432,6 @@ class DatabaseManager:
         result: Any,
         query_id: str,
         news_content: str | None,
-        context_snapshot: dict[str, Any] | None = None,
-        save_snapshot: bool = True,
     ) -> int:
         """
         保存分析结果历史记录
@@ -428,9 +440,6 @@ class DatabaseManager:
             return 0
 
         raw_result = self._build_raw_result(result)
-        context_text = None
-        if save_snapshot and context_snapshot is not None:
-            context_text = self._safe_json_dumps(context_snapshot)
 
         record = AnalysisHistory(
             query_id=query_id,
@@ -442,7 +451,6 @@ class DatabaseManager:
             analysis_summary=result.analysis_summary,
             raw_result=self._safe_json_dumps(raw_result),
             news_content=news_content,
-            context_snapshot=context_text,
             created_at=datetime.now(),
         )
 
