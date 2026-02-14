@@ -194,8 +194,8 @@ class NotificationService:
         if filename is None:
             from datetime import datetime
 
-            date_str = datetime.now().strftime("%Y%m%d")
-            filename = f"report_{date_str}.md"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"report_{timestamp}.md"
 
         # 确保 reports 目录存在（使用项目根目录）
         from stock_analyzer.config import get_project_root

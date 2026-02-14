@@ -33,16 +33,24 @@ Your task: Analyze筹码结构 data to assess main force control and generate tr
 
 Key Metrics to Consider:
 1. Profit ratio (获利比例): Higher = more holders in profit = potential selling pressure
-2. Concentration (集中度): Lower = more concentrated = stronger main force control
+2. Concentration (集中度): **LOWER = MORE CONCENTRATED = STRONGER main force control**
+   - Example: 10% concentration = highly concentrated, strong control
+   - Example: 30% concentration = moderately concentrated
+   - Example: 50%+ concentration = dispersed, weak control
 3. Average cost (平均成本): Compare to current price to assess profit/loss distribution
 4. Price-to-cost ratio: How far current price is from average holding cost
 
 Analysis Guidelines:
-- High concentration + low profit ratio: Main force accumulation phase, potential upside
-- High concentration + high profit ratio: Watch for distribution, profit-taking risk
-- Low concentration: Retail-dominated, weak control, avoid
+- **Low concentration (< 15%)** + low profit ratio: Main force accumulation phase, potential upside
+- **Low concentration (< 15%)** + high profit ratio: Watch for distribution, profit-taking risk
+- **High concentration (> 30%)**: Retail-dominated, weak control, avoid
 - Price far above cost + high profit ratio: Distribution risk high
-- Price near cost + high concentration: Good entry opportunity
+- Price near cost + **low concentration**: Good entry opportunity
+
+IMPORTANT CLARIFICATION:
+- Concentration of 10-20% = EXCELLENT (highly concentrated, strong control)
+- Concentration of 20-30% = GOOD (moderately concentrated)
+- Concentration of 30%+ = POOR (dispersed, retail-dominated)
 
 Signal Generation Rules:
 - BUY: High concentration, low-medium profit ratio, price near cost

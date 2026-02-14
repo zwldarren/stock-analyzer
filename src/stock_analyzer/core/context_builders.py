@@ -10,12 +10,47 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from stock_analyzer.core.technical_indicators import calculate_all_indicators
+
 if TYPE_CHECKING:
     from stock_analyzer.domain.types import (
         UnifiedRealtimeQuote,
     )
 
 logger = logging.getLogger(__name__)
+
+
+def _get_default_technical_indicators(current_price: float = 0.0, ma20: float = 0.0) -> dict[str, float]:
+    """Return default technical indicator values when calculation fails or data is insufficient.
+
+    Uses reasonable estimates based on available price data to avoid showing zeros.
+    """
+    # Use current price or MA20 as base for estimates
+    base_price = current_price if current_price > 0 else ma20
+
+    # Estimate ATR as a reasonable percentage of price (typical daily volatility ~1-2%)
+    estimated_atr = base_price * 0.015 if base_price > 0 else 0.0
+
+    # Estimate Bollinger Bands based on typical 2% std dev around MA20
+    bb_middle = ma20 if ma20 > 0 else current_price
+    bb_width = bb_middle * 0.04 if bb_middle > 0 else 0.0  # 4% total width (2% each side)
+
+    return {
+        "adx": 20.0,
+        "rsi_14": 50.0,
+        "rsi_28": 50.0,
+        "macd": 0.0,
+        "macd_signal": 0.0,
+        "macd_hist": 0.0,
+        "bb_upper": round(bb_middle + bb_width, 2) if bb_middle > 0 else 0.0,
+        "bb_middle": round(bb_middle, 2),
+        "bb_lower": round(bb_middle - bb_width, 2) if bb_middle > 0 else 0.0,
+        "bb_position": 0.5,
+        "atr": round(estimated_atr, 4),
+        "atr_ratio": round(estimated_atr / base_price * 100, 4) if base_price > 0 else 0.0,
+        "stochastic_k": 50.0,
+        "stochastic_d": 50.0,
+    }
 
 
 def build_basic_context(
@@ -121,7 +156,7 @@ def build_technical_context(daily_data: pd.DataFrame | None) -> dict[str, Any]:
 
 
 def build_technical_indicators(daily_data: pd.DataFrame | None) -> dict[str, Any]:
-    """Build detailed technical indicators."""
+    """Build detailed technical indicators including RSI, MACD, Bollinger Bands, ATR, ADX, Stochastic."""
     if daily_data is None or daily_data.empty or "close" not in daily_data.columns:
         return {}
 
@@ -162,8 +197,59 @@ def build_technical_indicators(daily_data: pd.DataFrame | None) -> dict[str, Any
                 0.5 if price_change > 0 and recent["volume"].iloc[-1] > volume_avg else 0.3
             )
 
-    # ADX simulation
-    technical_data["adx"] = 20.0
+    # Calculate advanced technical indicators using the new module
+    if all(col in daily_data.columns for col in ["high", "low", "close"]):
+        high_prices = daily_data["high"].dropna().tolist()
+        low_prices = daily_data["low"].dropna().tolist()
+        close_prices = daily_data["close"].dropna().tolist()
+
+        # Only calculate if we have enough data
+        if len(high_prices) >= 30 and len(low_prices) >= 30 and len(close_prices) >= 30:
+            try:
+                advanced_indicators = calculate_all_indicators(
+                    high_prices=high_prices,
+                    low_prices=low_prices,
+                    close_prices=close_prices,
+                )
+
+                # RSI
+                technical_data["rsi_14"] = advanced_indicators["rsi_14"]
+                technical_data["rsi_28"] = advanced_indicators["rsi_28"]
+
+                # MACD
+                technical_data["macd"] = advanced_indicators["macd"]
+                technical_data["macd_signal"] = advanced_indicators["macd_signal"]
+                technical_data["macd_hist"] = advanced_indicators["macd_hist"]
+
+                # Bollinger Bands
+                technical_data["bb_upper"] = advanced_indicators["bb_upper"]
+                technical_data["bb_middle"] = advanced_indicators["bb_middle"]
+                technical_data["bb_lower"] = advanced_indicators["bb_lower"]
+                technical_data["bb_position"] = advanced_indicators["bb_position"]
+
+                # ATR
+                technical_data["atr"] = advanced_indicators["atr"]
+                technical_data["atr_ratio"] = advanced_indicators["atr_ratio"]
+
+                # ADX
+                technical_data["adx"] = advanced_indicators["adx"]
+
+                # Stochastic
+                technical_data["stochastic_k"] = advanced_indicators["stochastic_k"]
+                technical_data["stochastic_d"] = advanced_indicators["stochastic_d"]
+
+            except Exception as e:
+                logger.warning(f"Failed to calculate advanced indicators: {e}")
+                ma20 = technical_data.get("ma20", 0)
+                technical_data.update(_get_default_technical_indicators(technical_data["current_price"], ma20))
+        else:
+            # Not enough data for advanced indicators
+            ma20 = technical_data.get("ma20", 0)
+            technical_data.update(_get_default_technical_indicators(technical_data["current_price"], ma20))
+    else:
+        # Missing high/low data, use defaults
+        ma20 = technical_data.get("ma20", 0)
+        technical_data.update(_get_default_technical_indicators(technical_data["current_price"], ma20))
 
     # OBV trend
     if len(daily_data) >= 2 and "close" in daily_data.columns and "volume" in daily_data.columns:

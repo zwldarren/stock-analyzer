@@ -7,10 +7,6 @@ This agent provides a unified investment style analysis with:
 - Value investing (Buffett/Graham principles): 30%
 - Growth investing (disruptive innovation): 35%
 - Momentum investing (trend following): 35%
-
-Previously separate ValueAgent, GrowthAgent, and MomentumAgent are now
-consolidated into this single agent to reduce complexity while maintaining
-the same analytical coverage.
 """
 
 import logging
@@ -631,8 +627,8 @@ class StyleAgent(BaseAgent):
         if score >= 65:
             confidence = min(100, int(60 + (score - 65) * 1.1))
             return (SignalType.BUY, confidence)
-        elif score <= 35:
-            confidence = min(100, int(60 + (35 - score) * 1.1))
+        elif score <= 30:
+            confidence = min(100, int(60 + (30 - score) * 1.1))
             return (SignalType.SELL, confidence)
         else:
             distance = abs(score - 50)

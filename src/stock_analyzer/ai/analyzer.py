@@ -9,6 +9,9 @@ Responsibilities:
 2. Aggregate agent signals to generate final trading decisions
 3. Generate decision dashboard reports
 4. Support multiple LLM providers with fallback
+
+Architecture:
+    Analysis Agents (parallel) -> RiskManagerAgent -> PortfolioManagerAgent (final decision)
 """
 
 import logging
@@ -27,7 +30,12 @@ class AIAnalyzer(IAIAnalyzer):
     AI Analyzer based on multi-agent architecture.
 
     This class coordinates multiple specialized agents to analyze stocks
-    and generates trading decisions through the decision layer.
+    and generates trading decisions through the PortfolioManagerAgent.
+
+    Execution Flow:
+        1. RiskManagerAgent calculates position limits (runs first)
+        2. Analysis agents run in parallel (Technical, Fundamental, etc.)
+        3. PortfolioManagerAgent makes final decision respecting risk limits
 
     Example:
         analyzer = AIAnalyzer()
@@ -44,10 +52,10 @@ class AIAnalyzer(IAIAnalyzer):
         from stock_analyzer.agents import (
             AgentCoordinator,
             ChipAgent,
-            DecisionAgent,
             FundamentalAgent,
             NewsSentimentAgent,
-            RiskAgent,
+            PortfolioManagerAgent,
+            RiskManagerAgent,
             StyleAgent,
             TechnicalAgent,
             ValuationAgent,
@@ -70,13 +78,14 @@ class AIAnalyzer(IAIAnalyzer):
         # Investment style (merged Value/Growth/Momentum into single agent)
         self._agent_coordinator.register_agent(StyleAgent())
 
-        # Risk management
-        self._agent_coordinator.register_agent(RiskAgent())
+        # Risk manager (calculates position limits, not a trading signal)
+        self._risk_manager_agent = RiskManagerAgent()
 
-        # Register decision agent (final decision maker)
-        self._decision_agent = DecisionAgent()
+        # Portfolio manager (final decision maker with risk constraints)
+        self._portfolio_manager = PortfolioManagerAgent()
 
-        logger.info(f"Agent协调器初始化完成，已注册{len(self._agent_coordinator.agents)}个分析Agent + 1个决策Agent")
+        agent_count = len(self._agent_coordinator.agents)
+        logger.info(f"Agent协调器初始化完成，已注册{agent_count}个分析Agent + RiskManager + PortfolioManager")
 
     def is_available(self) -> bool:
         """Check if analyzer is available."""
@@ -87,9 +96,9 @@ class AIAnalyzer(IAIAnalyzer):
         Analyze a single stock using multi-agent architecture.
 
         Analysis flow:
-        1. Execute parallel multi-agent analysis (Technical/Fundamental/Chip)
-        2. Aggregate agent signals to generate consensus data
-        3. Decision layer (DecisionAgent) generates final trading decision
+        1. RiskManagerAgent calculates position limits (runs first)
+        2. Execute parallel multi-agent analysis (Technical/Fundamental/Chip)
+        3. PortfolioManagerAgent makes final decision respecting risk limits
         4. Build decision dashboard
         5. Return structured result
 
@@ -121,10 +130,15 @@ class AIAnalyzer(IAIAnalyzer):
             raise AnalysisError("Agent协调器初始化失败")
 
         try:
-            # Step 1: Execute multi-agent analysis
+            # Step 1: RiskManagerAgent calculates position limits (runs first)
+            risk_manager_signal = self._risk_manager_agent.analyze(context)
+            max_pos = risk_manager_signal.metadata.get("max_position_size", 0.25) * 100
+            logger.info(f"[{code}] 风险管理完成: 仓位上限={max_pos:.0f}%")
+
+            # Step 2: Execute multi-agent analysis (parallel)
             agent_results = self._agent_coordinator.analyze(context)
 
-            # Step 2: Extract consensus data (simplified - no weighted scores)
+            # Step 3: Extract consensus data
             consensus = agent_results["consensus"]
             agent_signals = agent_results["agent_signals"]
             consensus_level = agent_results["consensus_level"]
@@ -133,31 +147,38 @@ class AIAnalyzer(IAIAnalyzer):
                 f"[{code}] 分析Agent完成: {len(consensus.participating_agents)}个Agent参与, 共识度{consensus_level:.2f}"
             )
 
-            # Step 3: Get current position status (can be extended to fetch from portfolio)
+            # Step 4: Get current position status (can be extended to fetch from portfolio)
             current_position = context.get("current_position", "none")
 
-            # Step 4: Decision layer makes final decision
+            # Step 5: PortfolioManager makes final decision with risk constraints
             decision_context = {
                 "code": code,
                 "stock_name": name,
                 "current_position": current_position,
                 "agent_signals": agent_signals,
+                "risk_manager_signal": {
+                    "signal": risk_manager_signal.signal.to_string(),
+                    "confidence": risk_manager_signal.confidence,
+                    "reasoning": risk_manager_signal.reasoning,
+                    "metadata": risk_manager_signal.metadata,
+                },
                 "consensus_data": {
                     "consensus_level": consensus_level,
                     "participating_agents": consensus.participating_agents,
                     "risk_flags": consensus.risk_flags,
+                    "weighted_score": risk_manager_signal.metadata.get("risk_score", 50),
                 },
                 "market_data": context.get("today", {}),
             }
 
-            final_signal = self._decision_agent.analyze(decision_context)
+            final_signal = self._portfolio_manager.analyze(decision_context)
 
             logger.info(
-                f"[{code}] 决策层完成: {final_signal.metadata.get('action', 'unknown')} "
-                f"(置信度{final_signal.confidence}%)"
+                f"[{code}] 投资组合决策完成: {final_signal.metadata.get('action', 'unknown')} "
+                f"(置信度{final_signal.confidence}%, 仓位{final_signal.metadata.get('position_ratio', 0) * 100:.0f}%)"
             )
 
-            # Step 5: Build AnalysisResult from decision
+            # Step 6: Build AnalysisResult from decision
             result = self._build_analysis_result_from_decision(
                 code=code,
                 name=name,
@@ -167,7 +188,7 @@ class AIAnalyzer(IAIAnalyzer):
                 context=context,
             )
 
-            # Step 6: Populate debug fields (data_sources and raw_response)
+            # Step 7: Populate debug fields (data_sources and raw_response)
             result.data_sources = self._collect_data_sources(agent_signals)
             result.raw_response = {
                 "final_decision": {
@@ -176,6 +197,11 @@ class AIAnalyzer(IAIAnalyzer):
                     "confidence": final_signal.confidence,
                     "reasoning": final_signal.reasoning,
                     "metadata": final_signal.metadata,
+                },
+                "risk_management": {
+                    "max_position_size": risk_manager_signal.metadata.get("max_position_size"),
+                    "risk_score": risk_manager_signal.metadata.get("risk_score"),
+                    "volatility_tier": risk_manager_signal.metadata.get("volatility_tier"),
                 },
                 "agent_signals": agent_signals,
                 "consensus": {
@@ -462,5 +488,3 @@ class AIAnalyzer(IAIAnalyzer):
             results.append(result)
 
         return results
-
-

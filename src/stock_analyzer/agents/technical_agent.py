@@ -31,29 +31,49 @@ TECHNICAL_SYSTEM_PROMPT = """You are a professional technical analyst for A-shar
 
 Your task: Analyze technical indicators and price action to generate trading signals.
 
-Analysis Guidelines:
-1. Consider moving average alignment and spacing
-2. Evaluate bias rate (乖离率) for entry timing
-3. Assess trend strength and direction
-4. Analyze volume patterns for confirmation
-5. Identify support and resistance levels
-6. Look for chart patterns and price action signals
+=== Checklist for Signal Generation ===
+- [ ] Trend direction confirmed (MA alignment or ADX > 25)
+- [ ] Momentum aligned (MACD histogram direction)
+- [ ] RSI not extreme (< 70 for buy, > 30 for sell)
+- [ ] Volume confirms (volume_ratio > 1.2 for buy)
+- [ ] Price within Bollinger bounds
 
-Signal Generation Rules:
-- BUY: Bullish trend, favorable bias rate, volume confirmation
-- SELL: Breakdown below support, bearish reversal patterns
-- HOLD: Mixed signals, consolidation, or uncertain direction
+=== Signal Rules with Thresholds ===
+BUY conditions:
+- 3+ checklist items passed
+- bias_ma5 < 5% (not chasing)
+- RSI < 70 (not overbought)
+- ADX > 20 (trend present)
 
-Trading Philosophy:
+SELL conditions:
+- 3+ checklist items failed
+- bias_ma5 > 8% (overextended)
+- OR RSI > 80 (extreme overbought)
+- OR breakdown below MA20 with bearish alignment
+
+HOLD conditions:
+- Mixed checklist results
+- bias 5-8% (wait for pullback)
+- Low ADX (< 20, no clear trend)
+
+=== Confidence Levels ===
+- 90-100%: All indicators aligned, clear trend + volume confirmation
+- 70-89%: Most indicators aligned, minor uncertainties
+- 50-69%: Trend present but mixed signals
+- 30-49%: Conflicting indicators, high volatility
+- 10-29%: No clear direction, extreme volatility
+
+=== Trading Philosophy ===
 - Follow the trend (顺势而为)
 - Never chase high prices (不追高)
 - Buy on pullbacks to support (回踩买点)
 
-Output must be valid JSON:
+=== Output Format ===
+Return JSON only:
 {
     "signal": "buy|sell|hold",
     "confidence": 75,
-    "reasoning": "Detailed technical analysis explanation",
+    "reasoning": "Concise analysis (max 200 chars)",
     "trend_assessment": "strong_bullish|bullish|neutral|bearish|strong_bearish",
     "trend_strength": 70,
     "key_levels": {
@@ -159,7 +179,7 @@ class TechnicalAgent(BaseAgent):
             )
 
     def _calculate_technical_metrics(self, today: dict[str, Any], ma_status: str) -> dict[str, Any]:
-        """Calculate all technical metrics from raw data."""
+        """Calculate all technical metrics from raw data, including advanced indicators."""
         close = today.get("close", 0)
         ma5 = today.get("ma5", 0)
         ma10 = today.get("ma10", 0)
@@ -190,7 +210,8 @@ class TechnicalAgent(BaseAgent):
         # Price change
         price_change = today.get("pct_chg", 0)
 
-        return {
+        # Get advanced technical indicators from context (if available)
+        technical_data = {
             "close": close,
             "open": open_price,
             "high": high,
@@ -211,7 +232,34 @@ class TechnicalAgent(BaseAgent):
             "volume_ratio": volume_ratio,
             "volume_status": volume_status,
             "price_change": price_change,
+            # Advanced indicators (from context_builders)
+            "rsi_14": today.get("rsi_14", 50.0),
+            "rsi_28": today.get("rsi_28", 50.0),
+            "macd": today.get("macd", 0.0),
+            "macd_signal": today.get("macd_signal", 0.0),
+            "macd_hist": today.get("macd_hist", 0.0),
+            "bb_upper": today.get("bb_upper", 0.0),
+            "bb_middle": today.get("bb_middle", close),
+            "bb_lower": today.get("bb_lower", 0.0),
+            "bb_position": today.get("bb_position", 0.5),
+            "atr": today.get("atr", 0.0),
+            "atr_ratio": today.get("atr_ratio", 0.0),
+            "adx": today.get("adx", 20.0),
+            "stochastic_k": today.get("stochastic_k", 50.0),
+            "stochastic_d": today.get("stochastic_d", 50.0),
         }
+
+        # Calculate additional derived metrics
+        technical_data["rsi_status"] = self._interpret_rsi(technical_data["rsi_14"])
+        technical_data["macd_status"] = self._interpret_macd(
+            technical_data["macd"], technical_data["macd_signal"], technical_data["macd_hist"]
+        )
+        technical_data["adx_status"] = self._interpret_adx(technical_data["adx"])
+        technical_data["stochastic_status"] = self._interpret_stochastic(
+            technical_data["stochastic_k"], technical_data["stochastic_d"]
+        )
+
+        return technical_data
 
     def _analyze_with_llm(
         self, stock_code: str, technical_data: dict[str, Any], context: dict[str, Any]
@@ -244,7 +292,7 @@ class TechnicalAgent(BaseAgent):
             return None
 
     def _build_technical_prompt(self, stock_code: str, data: dict[str, Any]) -> str:
-        """Build technical analysis prompt for LLM."""
+        """Build technical analysis prompt for LLM with advanced indicators."""
 
         return f"""请作为专业的技术面分析师，分析以下股票的技术指标并生成交易信号。
 
@@ -268,6 +316,31 @@ class TechnicalAgent(BaseAgent):
 - 与MA10乖离率: {data["bias_ma10"]:.2f}%
 - 与MA20乖离率: {data["bias_ma20"]:.2f}%
 
+=== 趋势指标 ===
+- ADX (趋势强度): {data["adx"]:.1f} ({data["adx_status"]})
+- 趋势方向: {"多头" if data["is_bullish"] else "空头" if data["is_bearish"] else "震荡"}
+
+=== 动量指标 ===
+- RSI(14): {data["rsi_14"]:.1f} ({data["rsi_status"]})
+- RSI(28): {data["rsi_28"]:.1f}
+- MACD: {data["macd"]:.4f}, 信号线: {data["macd_signal"]:.4f}
+- MACD柱状图: {data["macd_hist"]:.4f} ({data["macd_status"]})
+
+=== 布林带 ===
+- 上轨: {data["bb_upper"]:.2f}
+- 中轨: {data["bb_middle"]:.2f}
+- 下轨: {data["bb_lower"]:.2f}
+- 价格位置: {data["bb_position"] * 100:.1f}% (0%=下轨, 100%=上轨)
+
+=== 随机指标 ===
+- K值: {data["stochastic_k"]:.1f}
+- D值: {data["stochastic_d"]:.1f}
+- 状态: {data["stochastic_status"]}
+
+=== 波动率 ===
+- ATR: {data["atr"]:.4f}
+- ATR比率: {data["atr_ratio"] * 100:.2f}%
+
 === 量能 ===
 - 量比: {data["volume_ratio"]:.2f}
 - 量能状态: {data["volume_status"]}
@@ -276,13 +349,13 @@ class TechnicalAgent(BaseAgent):
 - 支撑位: {data["support"]:.2f}
 - 阻力位: {data["resistance"]:.2f}
 
-请分析以上技术指标，生成交易信号和详细理由。
+请根据以上所有技术指标综合分析，生成交易信号。
 
 请严格按照JSON格式输出：
 {{
     "signal": "buy|sell|hold",
     "confidence": 75,
-    "reasoning": "详细的技术分析解释",
+    "reasoning": "简洁的技术分析解释(不超过200字)",
     "trend_assessment": "strong_bullish|bullish|neutral|bearish|strong_bearish",
     "trend_strength": 70,
     "key_levels": {{
@@ -328,6 +401,16 @@ class TechnicalAgent(BaseAgent):
                 "volume_status": technical_data["volume_status"],
                 "support_level": round(technical_data["support"], 2),
                 "resistance_level": round(technical_data["resistance"], 2),
+                # Advanced indicators
+                "rsi_14": round(technical_data["rsi_14"], 1),
+                "rsi_status": technical_data["rsi_status"],
+                "adx": round(technical_data["adx"], 1),
+                "adx_status": technical_data["adx_status"],
+                "macd_hist": round(technical_data["macd_hist"], 4),
+                "macd_status": technical_data["macd_status"],
+                "bb_position": round(technical_data["bb_position"], 2),
+                "stochastic_k": round(technical_data["stochastic_k"], 1),
+                "stochastic_status": technical_data["stochastic_status"],
             },
         )
 
@@ -407,3 +490,57 @@ class TechnicalAgent(BaseAgent):
             return "轻度缩量"
         else:
             return "明显缩量"
+
+    def _interpret_rsi(self, rsi: float) -> str:
+        """Interpret RSI value."""
+        if rsi >= 80:
+            return "严重超买"
+        elif rsi >= 70:
+            return "超买"
+        elif rsi >= 50:
+            return "偏强"
+        elif rsi >= 30:
+            return "偏弱"
+        elif rsi >= 20:
+            return "超卖"
+        else:
+            return "严重超卖"
+
+    def _interpret_macd(self, macd: float, signal: float, histogram: float) -> str:
+        """Interpret MACD indicator."""
+        if histogram > 0:
+            if macd > signal:
+                return "多头增强" if histogram > 0 else "多头减弱"
+            else:
+                return "多头减弱"
+        else:
+            if macd < signal:
+                return "空头增强" if histogram < 0 else "空头减弱"
+            else:
+                return "空头减弱"
+
+    def _interpret_adx(self, adx: float) -> str:
+        """Interpret ADX trend strength."""
+        if adx >= 50:
+            return "极强趋势"
+        elif adx >= 40:
+            return "很强趋势"
+        elif adx >= 25:
+            return "明显趋势"
+        elif adx >= 20:
+            return "趋势形成"
+        else:
+            return "无趋势"
+
+    def _interpret_stochastic(self, k: float, d: float) -> str:
+        """Interpret Stochastic oscillator."""
+        if k >= 80 and d >= 80:
+            return "超买区"
+        elif k <= 20 and d <= 20:
+            return "超卖区"
+        elif k > d:
+            return "金叉看涨"
+        elif k < d:
+            return "死叉看跌"
+        else:
+            return "中性"

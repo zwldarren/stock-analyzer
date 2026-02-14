@@ -22,9 +22,9 @@ def setup_logging(
     log_path = Path(log_dir)
     log_path.mkdir(parents=True, exist_ok=True)
 
-    today_str = datetime.now().strftime("%Y%m%d")
-    log_file = log_path / f"stock_analysis_{today_str}.log"
-    debug_log_file = log_path / f"stock_analysis_debug_{today_str}.log"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_path / f"stock_analysis_{timestamp}.log"
+    debug_log_file = log_path / f"stock_analysis_debug_{timestamp}.log"
 
     # 移除默认的 stderr handler
     logger.remove()

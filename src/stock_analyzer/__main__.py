@@ -9,7 +9,6 @@ A股自选股智能分析系统 - 主调度程序 (Simplified)
     python -m stock_analyzer --dry-run    # 仅获取数据不分析
 """
 
-import asyncio
 import os
 import sys
 from datetime import datetime
@@ -185,14 +184,6 @@ def run_main(
 
         logger.info("\n程序执行完成")
 
-        # 关闭所有未关闭的事件循环，避免 ResourceWarning
-        try:
-            loop = asyncio.get_event_loop()
-            if not loop.is_closed() and not loop.is_running():
-                loop.close()
-        except Exception:
-            pass
-
         return 0
 
     except KeyboardInterrupt:
@@ -296,7 +287,7 @@ def _run_dry_mode(stock_codes: list[str], max_workers: int) -> list:
     data_service = get_data_service()
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_code = {executor.submit(data_service.get_daily_data, code, 30): code for code in stock_codes}
+        future_to_code = {executor.submit(data_service.get_daily_data, code, 90): code for code in stock_codes}
 
         for future in as_completed(future_to_code):
             code = future_to_code[future]
