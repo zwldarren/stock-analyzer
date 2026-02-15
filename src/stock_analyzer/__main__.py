@@ -16,9 +16,10 @@ from datetime import datetime
 import click
 from loguru import logger
 
+from stock_analyzer.analyzer import batch_analyze
 from stock_analyzer.config import Config, check_config_valid, get_config, get_config_safe
-from stock_analyzer.core import batch_analyze, get_data_service, get_notification_service
-from stock_analyzer.domain.constants import get_action_emoji
+from stock_analyzer.constants import get_action_emoji
+from stock_analyzer.dependencies import get_data_manager, get_notification_service
 from stock_analyzer.setup_wizard import init_command
 from stock_analyzer.utils.logging_config import setup_logging
 
@@ -127,7 +128,7 @@ def run_main(
             logger.info("模式: 定时任务")
             logger.info(f"每日执行时间: {config.schedule.schedule_time}")
 
-            from stock_analyzer.core.scheduler import run_with_schedule
+            from stock_analyzer.scheduler import run_with_schedule
 
             def scheduled_task():
                 run_full_analysis(
@@ -241,8 +242,8 @@ def run_full_analysis(
 def _prefetch_realtime_quotes(stock_codes: list[str]) -> None:
     """批量预取实时行情数据以优化性能"""
     try:
-        data_service = get_data_service()
-        prefetch_count = data_service.prefetch_realtime_quotes(stock_codes)
+        data_manager = get_data_manager()
+        prefetch_count = data_manager.prefetch_realtime_quotes(stock_codes)
         if prefetch_count > 0:
             logger.info(f"已启用批量预取架构：一次拉取全市场数据，{len(stock_codes)} 只股票共享缓存")
     except Exception as e:
@@ -255,10 +256,10 @@ def _run_dry_mode(stock_codes: list[str], max_workers: int) -> list:
 
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    data_service = get_data_service()
+    data_manager = get_data_manager()
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_code = {executor.submit(data_service.get_daily_data, code, 90): code for code in stock_codes}
+        future_to_code = {executor.submit(data_manager.get_daily_data, code, 90): code for code in stock_codes}
 
         for future in as_completed(future_to_code):
             code = future_to_code[future]

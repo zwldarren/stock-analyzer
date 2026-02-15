@@ -8,7 +8,7 @@ from typing import Annotated, Any
 from pydantic import AfterValidator, BeforeValidator, Field, ValidationError, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from stock_analyzer.domain.exceptions import ConfigurationError
+from stock_analyzer.exceptions import ConfigurationError
 
 
 def _find_project_root() -> Path:

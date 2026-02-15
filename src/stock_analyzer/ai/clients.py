@@ -14,7 +14,7 @@ import litellm
 from litellm import completion
 
 from stock_analyzer.config import get_config
-from stock_analyzer.domain.exceptions import AnalysisError
+from stock_analyzer.exceptions import AnalysisError
 from stock_analyzer.utils import calculate_backoff_delay
 
 logger = logging.getLogger(__name__)

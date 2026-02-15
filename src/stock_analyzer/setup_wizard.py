@@ -9,8 +9,6 @@ from rich.panel import Panel
 from rich.text import Text
 
 from stock_analyzer.config import check_config_valid, get_config_safe
-from stock_analyzer.config.config import get_project_root
-from stock_analyzer.infrastructure import save_config_to_db_only
 
 console = Console()
 
@@ -389,12 +387,15 @@ def run_setup_wizard() -> bool:
         # 过滤掉 None 值
         all_config = {k: v for k, v in all_config.items() if v is not None}
 
-        # 保存到数据库（TUI 配置只保存到数据库，不保存到 .env）
-        db_path = get_project_root() / "data" / "stock_analysis.db"
-        db_url = f"sqlite:///{db_path}"
-        save_config_to_db_only(all_config, db_url)
+        # TODO: 实现配置保存功能 (需要 DatabaseManager 添加 save_config 方法)
+        # 目前 TUI 配置仅保存在内存中，下次启动需要重新配置
+        # 旧代码参考:
+        # db_path = get_project_root() / "data" / "stock_analysis.db"
+        # db_url = f"sqlite:///{db_path}"
+        # db_manager = DatabaseManager(db_url)
+        # db_manager.save_config(all_config)
 
-        console.print("[green]✅ 配置已保存到数据库[/green]")
+        console.print("[yellow]⚠️ 配置保存功能开发中，当前仅内存存储[/yellow]")
 
         # 验证配置
         console.print("\n[bold cyan]验证配置...[/bold cyan]")
@@ -409,7 +410,6 @@ def run_setup_wizard() -> bool:
 
         if is_valid:
             console.print("\n[bold green]✅ 配置完成并验证通过！[/bold green]")
-            console.print(f"[dim]配置已保存到数据库: {db_path}[/dim]")
             console.print("\n[bold]现在可以运行:[/bold] stock-analyzer")
             return True
         else:

@@ -223,3 +223,6 @@ __marimo__/
 *.db
 reports/
 logs/
+
+# Git worktrees
+.worktrees/

@@ -17,10 +17,10 @@ Architecture:
 import logging
 from typing import Any
 
-from stock_analyzer.domain import get_stock_name_from_context
-from stock_analyzer.domain.exceptions import AnalysisError
-from stock_analyzer.domain.models import AnalysisResult
-from stock_analyzer.domain.services import IAIAnalyzer
+from stock_analyzer.ai.interface import IAIAnalyzer
+from stock_analyzer.exceptions import AnalysisError
+from stock_analyzer.models import AnalysisResult
+from stock_analyzer.stock_name_resolver import StockNameResolver
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class AIAnalyzer(IAIAnalyzer):
 
     def _init_agent_coordinator(self) -> None:
         """Initialize multi-agent coordinator with decision layer."""
-        from stock_analyzer.agents import (
+        from stock_analyzer.ai.agents import (
             AgentCoordinator,
             ChipAgent,
             FundamentalAgent,
@@ -91,7 +91,7 @@ class AIAnalyzer(IAIAnalyzer):
         """Check if analyzer is available."""
         return self._agent_coordinator is not None
 
-    def analyze(self, context: dict[str, Any], news_context: str | None = None) -> AnalysisResult:
+    def analyze(self, context: dict[str, Any]) -> AnalysisResult:
         """
         Analyze a single stock using multi-agent architecture.
 
@@ -104,7 +104,6 @@ class AIAnalyzer(IAIAnalyzer):
 
         Args:
             context: Analysis context with stock data
-            news_context: Pre-searched news content (optional, for backward compatibility)
 
         Returns:
             AnalysisResult with trading decision
@@ -117,7 +116,7 @@ class AIAnalyzer(IAIAnalyzer):
             if "realtime" in context and context["realtime"].get("name"):
                 name = context["realtime"]["name"]
             else:
-                name = get_stock_name_from_context(code, context)
+                name = StockNameResolver.from_context(code, context)
 
         logger.info(f"========== 多Agent分析 {name}({code}) ==========")
 
