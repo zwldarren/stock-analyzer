@@ -81,7 +81,7 @@ class FundamentalAgent(BaseAgent):
         """
         stock_code = context.get("code", "")
 
-        self._logger.info(f"[{stock_code}] FundamentalAgent开始基本面分析")
+        self._logger.debug(f"[{stock_code}] FundamentalAgent开始基本面分析")
 
         # Get financial data from context
         financial_data = context.get("financial_data", {})
@@ -135,7 +135,7 @@ class FundamentalAgent(BaseAgent):
 
         reasoning = " / ".join(reasoning_parts)
 
-        self._logger.info(
+        self._logger.debug(
             f"[{stock_code}] FundamentalAgent分析完成: {signal} (总分{total_score:.1f}/100, 置信度{confidence}%)"
         )
 
@@ -376,7 +376,7 @@ class FundamentalAgent(BaseAgent):
 
         reasoning = " / ".join(reasoning_parts) if reasoning_parts else "基于有限数据的基础分析"
 
-        self._logger.info(
+        self._logger.debug(
             f"[{stock_code}] FundamentalAgent简化分析完成: {signal} (基础评分{score:.1f}/100, 置信度{confidence}%)"
         )
 

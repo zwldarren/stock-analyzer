@@ -268,7 +268,7 @@ class DatabaseManager:
                         saved_count += 1
 
                 session.commit()
-                logger.info(f"保存 {code} 数据成功，新增 {saved_count} 条")
+                logger.debug(f"保存 {code} 数据成功，新增 {saved_count} 条")
 
             except StorageError as e:
                 session.rollback()
@@ -384,7 +384,7 @@ class DatabaseManager:
                             logger.debug("新闻情报重复（已跳过）: %s %s", code, url_key)
 
                 session.commit()
-                logger.info(f"保存新闻情报成功: {code}, 新增 {saved_count} 条")
+                logger.debug(f"保存新闻情报成功: {code}, 新增 {saved_count} 条")
 
             except StorageError as e:
                 session.rollback()

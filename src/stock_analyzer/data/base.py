@@ -151,7 +151,7 @@ class BaseFetcher(ABC):
             start_dt = datetime.strptime(end_date, "%Y-%m-%d") - timedelta(days=days * 2)
             start_date = start_dt.strftime("%Y-%m-%d")
 
-        logger.info(f"[{self.name}] Fetching {stock_code} data: {start_date} ~ {end_date}")
+        logger.debug(f"[{self.name}] Fetching {stock_code} data: {start_date} ~ {end_date}")
 
         try:
             # Step 1: Get raw data
@@ -163,7 +163,7 @@ class BaseFetcher(ABC):
             # Step 2: Standardize column names
             df = self._normalize_data(raw_df, stock_code)
 
-            logger.info(f"[{self.name}] {stock_code} fetch success, {len(df)} rows")
+            logger.debug(f"[{self.name}] {stock_code} fetch success, {len(df)} rows")
             return df
 
         except Exception as e:

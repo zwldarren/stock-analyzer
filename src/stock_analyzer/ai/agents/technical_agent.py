@@ -115,7 +115,7 @@ class TechnicalAgent(BaseAgent):
         """Initialize LLM client for analysis using shared factory."""
         self._llm_client = get_llm_client()
         if self._llm_client:
-            self._logger.info("TechnicalAgent LLM client initialized successfully")
+            self._logger.debug("TechnicalAgent LLM client initialized successfully")
         else:
             self._logger.warning("No LLM API key configured, TechnicalAgent will use rule-based fallback")
 
@@ -140,7 +140,7 @@ class TechnicalAgent(BaseAgent):
         today = context.get("today", {})
         ma_status = context.get("ma_status", "")
 
-        self._logger.info(f"[{stock_code}] TechnicalAgent开始技术面分析")
+        self._logger.debug(f"[{stock_code}] TechnicalAgent开始技术面分析")
 
         try:
             # Extract price data
@@ -271,7 +271,7 @@ class TechnicalAgent(BaseAgent):
         try:
             prompt = self._build_technical_prompt(stock_code, technical_data)
 
-            self._logger.info(f"[{stock_code}] TechnicalAgent调用LLM进行技术分析...")
+            self._logger.debug(f"[{stock_code}] TechnicalAgent调用LLM进行技术分析...")
             response = self._llm_client.generate(
                 prompt=prompt,
                 generation_config={"temperature": 0.2, "max_output_tokens": 2048},
@@ -460,7 +460,7 @@ class TechnicalAgent(BaseAgent):
             signal, confidence = SignalType.HOLD, 50
             reasoning = f"技术面信号不明，{ma_status}"
 
-        self._logger.info(f"[{stock_code}] TechnicalAgent规则分析完成: {signal} (置信度{confidence}%)")
+        self._logger.debug(f"[{stock_code}] TechnicalAgent规则分析完成: {signal} (置信度{confidence}%)")
 
         return AgentSignal(
             agent_name=self.name,

@@ -170,7 +170,7 @@ class NewsSentimentAgent(BaseAgent):
         """Initialize LLM client for sentiment analysis."""
         self._llm_client = get_llm_client()
         if self._llm_client:
-            self._logger.info("NewsSentimentAgent LLM client initialized successfully")
+            self._logger.debug("NewsSentimentAgent LLM client initialized successfully")
         else:
             self._logger.warning("No LLM API key configured, NewsSentimentAgent will be unavailable")
 
@@ -207,7 +207,7 @@ class NewsSentimentAgent(BaseAgent):
         stock_code = context.get("code", "")
         stock_name = context.get("stock_name", "")
 
-        self._logger.info(f"[{stock_code}] NewsSentimentAgent开始新闻情绪分析")
+        self._logger.debug(f"[{stock_code}] NewsSentimentAgent开始新闻情绪分析")
 
         try:
             search_service = self._get_search_service()
@@ -246,7 +246,7 @@ class NewsSentimentAgent(BaseAgent):
             confidence = llm_analysis.get("confidence", 50)
             reasoning = llm_analysis.get("reasoning", "无详细理由")
 
-            self._logger.info(
+            self._logger.debug(
                 f"[{stock_code}] NewsSentimentAgent分析完成: {signal_str} "
                 f"(置信度{confidence}%, 情绪{llm_analysis.get('sentiment', 'neutral')})"
             )
@@ -310,7 +310,7 @@ class NewsSentimentAgent(BaseAgent):
             )
 
             # Call LLM
-            self._logger.info(f"[{stock_code}] NewsSentimentAgent调用LLM分析新闻情绪...")
+            self._logger.debug(f"[{stock_code}] NewsSentimentAgent调用LLM分析新闻情绪...")
             response = self._llm_client.generate(
                 prompt=prompt,
                 generation_config={"temperature": 0.3, "max_output_tokens": 2048},

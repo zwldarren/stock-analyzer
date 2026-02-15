@@ -103,7 +103,7 @@ class ChipAgent(BaseAgent):
         """Initialize LLM client for analysis using shared factory."""
         self._llm_client = get_llm_client()
         if self._llm_client:
-            self._logger.info("ChipAgent LLM client initialized successfully")
+            self._logger.debug("ChipAgent LLM client initialized successfully")
         else:
             self._logger.warning("No LLM API key configured, ChipAgent will use rule-based fallback")
 
@@ -128,7 +128,7 @@ class ChipAgent(BaseAgent):
         chip_data = context.get("chip", {})
         today = context.get("today", {})
 
-        self._logger.info(f"[{stock_code}] ChipAgent开始筹码分析")
+        self._logger.debug(f"[{stock_code}] ChipAgent开始筹码分析")
 
         # Check if chip data is available
         if not chip_data:
@@ -214,7 +214,7 @@ class ChipAgent(BaseAgent):
         try:
             prompt = self._build_chip_prompt(stock_code, chip_metrics)
 
-            self._logger.info(f"[{stock_code}] ChipAgent调用LLM进行筹码分析...")
+            self._logger.debug(f"[{stock_code}] ChipAgent调用LLM进行筹码分析...")
             response = self._llm_client.generate(
                 prompt=prompt,
                 generation_config={"temperature": 0.2, "max_output_tokens": 2048},
@@ -351,7 +351,7 @@ class ChipAgent(BaseAgent):
             signal_type, confidence = SignalType.HOLD, 40
             reasoning = f"筹码分散({concentration_90 * 100:.1f}%)，散户主导，缺乏主力"
 
-        self._logger.info(f"[{stock_code}] ChipAgent规则分析完成: {signal_type.to_string()} (置信度{confidence}%)")
+        self._logger.debug(f"[{stock_code}] ChipAgent规则分析完成: {signal_type.to_string()} (置信度{confidence}%)")
 
         return AgentSignal(
             agent_name=self.name,

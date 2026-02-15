@@ -74,7 +74,7 @@ class AgentCoordinator:
             raise ValidationError(f"Agent '{agent.name}' already registered")
 
         self.agents[agent.name] = agent
-        self._logger.info(f"注册Agent: {agent.name}")
+        self._logger.debug(f"注册Agent: {agent.name}")
 
     def unregister_agent(self, agent_name: str) -> None:
         """Unregister an agent."""
@@ -94,7 +94,7 @@ class AgentCoordinator:
                 - execution_summary: Summary of execution
         """
         stock_code = context.get("code", "Unknown")
-        self._logger.info(f"[{stock_code}] AgentCoordinator开始多Agent分析")
+        self._logger.debug(f"[{stock_code}] AgentCoordinator开始多Agent分析")
 
         # 1. Execute all available agents
         agent_results = self._execute_agents(context)
@@ -102,7 +102,7 @@ class AgentCoordinator:
         # 2. Build consensus (simplified - no weighted scoring)
         consensus = self._build_consensus(agent_results)
 
-        self._logger.info(
+        self._logger.debug(
             f"[{stock_code}] AgentCoordinator分析完成: "
             f"{len(consensus.participating_agents)}个Agent参与, "
             f"共识度{consensus.consensus_level:.2f}"
@@ -156,7 +156,7 @@ class AgentCoordinator:
         def execute_single_agent(name_agent_pair: tuple[str, BaseAgent]) -> tuple[str, AgentAnalysisResult]:
             name, agent = name_agent_pair
             try:
-                self._logger.info(f"[{stock_code}] 执行Agent: {name}")
+                self._logger.debug(f"[{stock_code}] 执行Agent: {name}")
                 signal = agent.analyze(context)
 
                 # 标准化信号类型
@@ -171,7 +171,7 @@ class AgentCoordinator:
                     success=True,
                 )
 
-                self._logger.info(f"[{stock_code}] Agent {name} 完成: {normalized_signal} (置信度{signal.confidence}%)")
+                self._logger.debug(f"[{stock_code}] Agent {name} 完成: {normalized_signal} (置信度{signal.confidence}%)")
                 return name, result
 
             except Exception as e:

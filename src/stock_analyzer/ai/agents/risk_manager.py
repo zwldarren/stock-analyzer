@@ -78,7 +78,7 @@ class RiskManagerAgent(BaseAgent):
             and metadata containing risk constraints
         """
         stock_code = context.get("code", "")
-        self._logger.info(f"[{stock_code}] RiskManagerAgent计算风险限制")
+        self._logger.debug(f"[{stock_code}] RiskManagerAgent计算风险限制")
 
         # Get price data
         price_data = context.get("price_data", {})
@@ -106,7 +106,7 @@ class RiskManagerAgent(BaseAgent):
             context.get("agent_signals", {}),
         )
 
-        self._logger.info(
+        self._logger.debug(
             f"[{stock_code}] RiskManager: 波动率档次={vol_tier}, 仓位上限={final_limit * 100:.0f}%, 风险分={risk_score}"
         )
 

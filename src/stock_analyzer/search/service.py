@@ -256,7 +256,7 @@ class SearchService(ISearchService):
                 response=response,
             )
             if saved > 0:
-                logger.info(f"[缓存保存] {stock_code} 保存了 {saved} 条新闻")
+                logger.debug(f"[缓存保存] {stock_code} 保存了 {saved} 条新闻")
             return saved
         except Exception as e:
             logger.warning(f"[缓存保存失败] {stock_code}: {e}")
@@ -368,7 +368,7 @@ class SearchService(ISearchService):
             # Use Chinese keywords for A-shares
             query = f"{stock_name} {stock_code} 股票 最新消息"
 
-        logger.info(f"搜索股票新闻: {stock_name}({stock_code}), query='{query}', 时间范围: 近{search_days}天")
+        logger.debug(f"搜索股票新闻: {stock_name}({stock_code}), query='{query}', 时间范围: 近{search_days}天")
 
         all_results: list[SearchResult] = []
         successful_provider = None
@@ -384,7 +384,7 @@ class SearchService(ISearchService):
                 all_results.extend(response.results)
                 if not successful_provider:
                     successful_provider = provider.name
-                logger.info(f"使用 {provider.name} 搜索成功，获取 {len(response.results)} 条结果")
+                logger.debug(f"使用 {provider.name} 搜索成功，获取 {len(response.results)} 条结果")
 
         # Deduplicate results
         if all_results:
@@ -503,7 +503,7 @@ class SearchService(ISearchService):
                 },
             ]
 
-        logger.info(f"开始多维度情报搜索: {stock_name}({stock_code})")
+        logger.debug(f"开始多维度情报搜索: {stock_name}({stock_code})")
 
         # Rotate through different search engines
         available_providers = [p for p in self._providers if p.is_available]
@@ -524,12 +524,12 @@ class SearchService(ISearchService):
                         provider="cache",
                         success=True,
                     )
-                    logger.info(f"[情报搜索] {dim['desc']}: 缓存命中 {len(cached)} 条结果")
+                    logger.debug(f"[情报搜索] {dim['desc']}: 缓存命中 {len(cached)} 条结果")
                     continue
 
             provider = available_providers[search_count % len(available_providers)]
 
-            logger.info(f"[情报搜索] {dim['desc']}: 使用 {provider.name}")
+            logger.debug(f"[情报搜索] {dim['desc']}: 使用 {provider.name}")
 
             response = provider.search(dim["query"], max_results=15)  # Get more for dedup
 
@@ -557,7 +557,7 @@ class SearchService(ISearchService):
             results[dim["name"]] = response
 
             if response.success:
-                logger.info(f"[情报搜索] {dim['desc']}: 获取 {len(response.results)} 条结果")
+                logger.debug(f"[情报搜索] {dim['desc']}: 获取 {len(response.results)} 条结果")
             else:
                 logger.warning(f"[情报搜索] {dim['desc']}: 搜索失败 - {response.error_message}")
 
@@ -617,7 +617,7 @@ class SearchService(ISearchService):
                 error_message="未配置搜索引擎 API Key",
             )
 
-        logger.info(f"[增强搜索] 数据源失败，启动增强搜索: {stock_name}({stock_code})")
+        logger.debug(f"[增强搜索] 数据源失败，启动增强搜索: {stock_name}({stock_code})")
 
         all_results: list[SearchResult] = []
         successful_providers = []
@@ -628,7 +628,7 @@ class SearchService(ISearchService):
         for i, keyword_template in enumerate(keywords[:max_attempts]):
             query = keyword_template.format(name=stock_name, code=stock_code)
 
-            logger.info(f"[增强搜索] 第 {i + 1}/{max_attempts} 次搜索: {query}")
+            logger.debug(f"[增强搜索] 第 {i + 1}/{max_attempts} 次搜索: {query}")
 
             # Try each search engine in order
             for provider in self._providers:
@@ -644,7 +644,7 @@ class SearchService(ISearchService):
                         if provider.name not in successful_providers:
                             successful_providers.append(provider.name)
 
-                        logger.info(f"[增强搜索] {provider.name} 返回 {len(response.results)} 条结果")
+                        logger.debug(f"[增强搜索] {provider.name} 返回 {len(response.results)} 条结果")
                         break
 
                 except Exception as e:
@@ -660,7 +660,7 @@ class SearchService(ISearchService):
             unique_results = self._deduplicate_results(all_results)[:max_results]
             provider_str = ", ".join(successful_providers) if successful_providers else "None"
 
-            logger.info(f"[增强搜索] 完成，共获取 {len(unique_results)} 条结果（来源: {provider_str}）")
+            logger.debug(f"[增强搜索] 完成，共获取 {len(unique_results)} 条结果（来源: {provider_str}）")
 
             return SearchResponse(
                 query=f"{stock_name}({stock_code}) 股价走势",

@@ -261,7 +261,7 @@ class BraveSearchProvider(ApiKeySearchProvider):
                     query=query, results=[], provider=self.name, success=False, error_message=error_msg
                 )
 
-            logger.info(f"[Brave] 搜索完成，query='{query}'")
+            logger.debug(f"[Brave] 搜索完成，query='{query}'")
             logger.debug(f"[Brave] 原始响应: {data}")
 
             # 解析搜索结果
@@ -290,7 +290,7 @@ class BraveSearchProvider(ApiKeySearchProvider):
                     )
                 )
 
-            logger.info(f"[Brave] 成功解析 {len(results)} 条结果")
+            logger.debug(f"[Brave] 成功解析 {len(results)} 条结果")
 
             return SearchResponse(query=query, results=results, provider=self.name, success=True)
 
@@ -544,7 +544,7 @@ class SearxngSearchProvider(BaseSearchProvider):
                     query=query, results=[], provider=self.name, success=False, error_message=error_msg
                 )
 
-            logger.info(f"[SearXNG] 搜索完成，query='{query}'")
+            logger.debug(f"[SearXNG] 搜索完成，query='{query}'")
             logger.debug(f"[SearXNG] 原始响应: {data}")
 
             # 解析搜索结果
@@ -581,7 +581,7 @@ class SearxngSearchProvider(BaseSearchProvider):
                     )
                 )
 
-            logger.info(f"[SearXNG] 成功解析 {len(results)} 条结果")
+            logger.debug(f"[SearXNG] 成功解析 {len(results)} 条结果")
 
             return SearchResponse(query=query, results=results, provider=self.name, success=True)
 

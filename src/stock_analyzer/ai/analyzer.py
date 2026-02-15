@@ -85,7 +85,7 @@ class AIAnalyzer(IAIAnalyzer):
         self._portfolio_manager = PortfolioManagerAgent()
 
         agent_count = len(self._agent_coordinator.agents)
-        logger.info(f"Agent协调器初始化完成，已注册{agent_count}个分析Agent + RiskManager + PortfolioManager")
+        logger.debug(f"Agent协调器初始化完成，已注册{agent_count}个分析Agent + RiskManager + PortfolioManager")
 
     def is_available(self) -> bool:
         """Check if analyzer is available."""
@@ -122,7 +122,7 @@ class AIAnalyzer(IAIAnalyzer):
 
         # Ensure coordinator is initialized
         if self._agent_coordinator is None:
-            logger.info("多Agent协调器未初始化，正在初始化...")
+            logger.debug("多Agent协调器未初始化，正在初始化...")
             self._init_agent_coordinator()
 
         if self._agent_coordinator is None:
@@ -132,7 +132,7 @@ class AIAnalyzer(IAIAnalyzer):
             # Step 1: RiskManagerAgent calculates position limits (runs first)
             risk_manager_signal = self._risk_manager_agent.analyze(context)
             max_pos = risk_manager_signal.metadata.get("max_position_size", 0.25) * 100
-            logger.info(f"[{code}] 风险管理完成: 仓位上限={max_pos:.0f}%")
+            logger.debug(f"[{code}] 风险管理完成: 仓位上限={max_pos:.0f}%")
 
             # Step 2: Execute multi-agent analysis (parallel)
             agent_results = self._agent_coordinator.analyze(context)
@@ -142,7 +142,7 @@ class AIAnalyzer(IAIAnalyzer):
             agent_signals = agent_results["agent_signals"]
             consensus_level = agent_results["consensus_level"]
 
-            logger.info(
+            logger.debug(
                 f"[{code}] 分析Agent完成: {len(consensus.participating_agents)}个Agent参与, 共识度{consensus_level:.2f}"
             )
 
@@ -172,7 +172,7 @@ class AIAnalyzer(IAIAnalyzer):
 
             final_signal = self._portfolio_manager.analyze(decision_context)
 
-            logger.info(
+            logger.debug(
                 f"[{code}] 投资组合决策完成: {final_signal.metadata.get('action', 'unknown')} "
                 f"(置信度{final_signal.confidence}%, 仓位{final_signal.metadata.get('position_ratio', 0) * 100:.0f}%)"
             )

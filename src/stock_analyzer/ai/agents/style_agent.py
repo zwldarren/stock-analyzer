@@ -112,7 +112,7 @@ class StyleAgent(BaseAgent):
             AgentSignal with comprehensive style analysis
         """
         stock_code = context.get("code", "")
-        self._logger.info(f"[{stock_code}] StyleAgent开始投资风格分析")
+        self._logger.debug(f"[{stock_code}] StyleAgent开始投资风格分析")
 
         # Get data from context
         current_price = context.get("current_price", 0)
@@ -150,7 +150,7 @@ class StyleAgent(BaseAgent):
             technical_data,
         )
 
-        self._logger.info(
+        self._logger.debug(
             f"[{stock_code}] StyleAgent分析完成: {signal} "
             f"(价值{value_score:.0f}/成长{growth_score:.0f}/动量{momentum_score:.0f}, "
             f"总分{total_score:.1f}/100, 置信度{confidence}%)"

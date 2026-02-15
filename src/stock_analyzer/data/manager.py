@@ -116,7 +116,7 @@ class DataManager:
             if local_data is not None and not local_data.empty:
                 latest_date = pd.to_datetime(local_data["date"].iloc[-1]).date()
                 if latest_date >= target_date:
-                    logger.info(f"[DataManager] Got {stock_code} from database, {len(local_data)} rows")
+                    logger.debug(f"[DataManager] Got {stock_code} from database, {len(local_data)} rows")
                     return local_data, "database"
 
         # 2. Fetch from external sources
@@ -129,7 +129,7 @@ class DataManager:
             # 3. Save to database
             if self._storage is not None:
                 self._storage.save_daily_data(df, stock_code, data_source=source)
-            logger.info(f"[DataManager] Got {stock_code} from {source}, {len(df)} rows")
+            logger.debug(f"[DataManager] Got {stock_code} from {source}, {len(df)} rows")
             return df, source
 
         return None, ""
@@ -166,7 +166,7 @@ class DataManager:
             quote = self._try_realtime_by_source(stock_code, source)
             if quote is not None and hasattr(quote, "has_basic_data") and quote.has_basic_data():
                 self._cache.set(cache_key, quote, ttl=600)
-                logger.info(f"[DataManager] Got realtime {stock_code} from {source}")
+                logger.debug(f"[DataManager] Got realtime {stock_code} from {source}")
                 return quote
 
         logger.warning(f"[DataManager] Failed to get realtime quote for {stock_code}")
@@ -321,7 +321,7 @@ class DataManager:
         quote = self.get_realtime_quote(first_code)
 
         if quote:
-            logger.info("[DataManager] Prefetch complete, cache filled")
+            logger.debug("[DataManager] Prefetch complete, cache filled")
             return len(stock_codes)
 
         return 0

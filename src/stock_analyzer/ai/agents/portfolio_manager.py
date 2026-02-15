@@ -110,7 +110,7 @@ class PortfolioManagerAgent(BaseAgent):
         """Initialize LLM client for decision generation."""
         self._llm_client = get_llm_client()
         if self._llm_client:
-            self._logger.info("PortfolioManagerAgent LLM client initialized successfully")
+            self._logger.debug("PortfolioManagerAgent LLM client initialized successfully")
         else:
             self._logger.warning("No LLM API key configured, will use rule-based fallback")
 
@@ -136,7 +136,7 @@ class PortfolioManagerAgent(BaseAgent):
         stock_code = context.get("code", "")
         stock_name = context.get("stock_name", "")
 
-        self._logger.info(f"[{stock_code}] PortfolioManagerAgent开始最终决策")
+        self._logger.debug(f"[{stock_code}] PortfolioManagerAgent开始最终决策")
 
         try:
             agent_signals = context.get("agent_signals", {})
@@ -164,7 +164,7 @@ class PortfolioManagerAgent(BaseAgent):
             # Apply risk limit to position ratio
             decision["position_ratio"] = min(decision.get("position_ratio", 0), max_position)
 
-            self._logger.info(
+            self._logger.debug(
                 f"[{stock_code}] PortfolioManager决策: {decision['action']} "
                 f"(置信度{decision['confidence']}%, 仓位{decision['position_ratio'] * 100:.0f}%)"
             )
@@ -215,7 +215,7 @@ class PortfolioManagerAgent(BaseAgent):
         """Use LLM to make final decision."""
         prompt = self._build_decision_prompt(stock_code, stock_name, agent_signals, consensus_data, max_position)
 
-        self._logger.info(f"[{stock_code}] PortfolioManager调用LLM进行决策...")
+        self._logger.debug(f"[{stock_code}] PortfolioManager调用LLM进行决策...")
 
         if not self._llm_client:
             return self._make_rule_based_decision(agent_signals, consensus_data, max_position)

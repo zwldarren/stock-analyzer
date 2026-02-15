@@ -86,7 +86,7 @@ class ValuationAgent(BaseAgent):
         stock_code = context.get("code", "")
         current_price = context.get("current_price", 0)
 
-        self._logger.info(f"[{stock_code}] ValuationAgent开始估值分析")
+        self._logger.debug(f"[{stock_code}] ValuationAgent开始估值分析")
 
         # Get valuation data from context
         valuation_data = context.get("valuation_data", {})
@@ -96,7 +96,7 @@ class ValuationAgent(BaseAgent):
         pb_ratio = valuation_data.get("pb_ratio", 0)
         eps = valuation_data.get("eps", 0)
         bvps = valuation_data.get("book_value_per_share", 0)
-        self._logger.info(f"[{stock_code}] 估值数据: PE={pe_ratio}, PB={pb_ratio}, EPS={eps}, BVPS={bvps}")
+        self._logger.debug(f"[{stock_code}] 估值数据: PE={pe_ratio}, PB={pb_ratio}, EPS={eps}, BVPS={bvps}")
 
         if not valuation_data or current_price <= 0:
             return AgentSignal(

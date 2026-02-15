@@ -613,14 +613,14 @@ class TushareFetcher(BaseFetcher):
 
             # 尝试获取最新一天的数据
             last_date = trade_cal.iloc[-1]["cal_date"]
-            logger.info(f"[Tushare] Calendar suggests last trading date: {last_date}")
+            logger.debug(f"[Tushare] Calendar suggests last trading date: {last_date}")
 
             # 注意：每日指标接口 daily 可能数据量较大
             # 如果是在盘中调用，当天的数据可能还未生成，导致返回空或极少数据
             df = api.daily(trade_date=last_date)
 
             current_len = len(df) if df is not None else 0
-            logger.info(f"[Tushare] Initial fetch for {last_date} returned {current_len} records")
+            logger.debug(f"[Tushare] Initial fetch for {last_date} returned {current_len} records")
 
             # 如果数据过少（<100条），说明当天数据未就绪，尝试使用前一交易日
             if df is None or len(df) < 100:
@@ -634,10 +634,10 @@ class TushareFetcher(BaseFetcher):
                 else:
                     logger.warning(f"[Tushare] {last_date} 数据不足且无可用历史交易日")
 
-            logger.info(f"Calculating stats using data from date: {last_date}")
+            logger.debug(f"Calculating stats using data from date: {last_date}")
 
             if df is not None and not df.empty:
-                logger.info(f"[Tushare] 使用交易日 {last_date} 进行市场统计分析")
+                logger.debug(f"[Tushare] 使用交易日 {last_date} 进行市场统计分析")
                 up_count = len(df[df["pct_chg"] > 0])
                 down_count = len(df[df["pct_chg"] < 0])
                 flat_count = len(df[df["pct_chg"] == 0])
