@@ -13,6 +13,7 @@ from typing import Any
 
 from stock_analyzer.constants import SIGNAL_BUY, SIGNAL_HOLD, SIGNAL_SELL, normalize_signal
 from stock_analyzer.exceptions import ValidationError
+from stock_analyzer.utils.console_display import get_display
 
 from .base import BaseAgent
 
@@ -153,8 +154,11 @@ class AgentCoordinator:
             return results
 
         # Execute agents in parallel
+        display = get_display()
+
         def execute_single_agent(name_agent_pair: tuple[str, BaseAgent]) -> tuple[str, AgentAnalysisResult]:
             name, agent = name_agent_pair
+            display.start_agent(name)
             try:
                 self._logger.debug(f"[{stock_code}] 执行Agent: {name}")
                 signal = agent.analyze(context)
@@ -171,6 +175,7 @@ class AgentCoordinator:
                     success=True,
                 )
 
+                display.complete_agent(name, normalized_signal, signal.confidence)
                 self._logger.debug(
                     f"[{stock_code}] Agent {name} 完成: {normalized_signal} (置信度{signal.confidence}%)"
                 )
@@ -178,6 +183,7 @@ class AgentCoordinator:
 
             except Exception as e:
                 self._logger.error(f"[{stock_code}] Agent {name} 执行失败: {e}")
+                display.complete_agent(name, "hold", 0, error=str(e))
                 result = AgentAnalysisResult(
                     agent_name=name,
                     signal=SIGNAL_HOLD,

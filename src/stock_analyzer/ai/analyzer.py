@@ -18,9 +18,11 @@ import logging
 from typing import Any
 
 from stock_analyzer.ai.interface import IAIAnalyzer
+from stock_analyzer.constants import normalize_signal
 from stock_analyzer.data.stock_name_resolver import StockNameResolver
 from stock_analyzer.exceptions import AnalysisError
 from stock_analyzer.models import AnalysisResult
+from stock_analyzer.utils.console_display import get_display
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ class AIAnalyzer(IAIAnalyzer):
     def __init__(self):
         """Initialize AI analyzer with multi-agent coordinator."""
         self._init_agent_coordinator()
-        logger.info("AI分析器初始化成功 (多Agent模式)")
+        logger.debug("AI分析器初始化成功 (多Agent模式)")
 
     def _init_agent_coordinator(self) -> None:
         """Initialize multi-agent coordinator with decision layer."""
@@ -118,7 +120,7 @@ class AIAnalyzer(IAIAnalyzer):
             else:
                 name = StockNameResolver.from_context(code, context)
 
-        logger.info(f"========== 多Agent分析 {name}({code}) ==========")
+        logger.debug(f"多Agent分析 {name}({code}) 开始")
 
         # Ensure coordinator is initialized
         if self._agent_coordinator is None:
@@ -129,8 +131,12 @@ class AIAnalyzer(IAIAnalyzer):
             raise AnalysisError("Agent协调器初始化失败")
 
         try:
+            display = get_display()
+
             # Step 1: RiskManagerAgent calculates position limits (runs first)
+            display.start_agent("RiskManagerAgent")
             risk_manager_signal = self._risk_manager_agent.analyze(context)
+            display.complete_agent("RiskManagerAgent", "neutral", risk_manager_signal.confidence)
             max_pos = risk_manager_signal.metadata.get("max_position_size", 0.25) * 100
             logger.debug(f"[{code}] 风险管理完成: 仓位上限={max_pos:.0f}%")
 
@@ -170,7 +176,10 @@ class AIAnalyzer(IAIAnalyzer):
                 "market_data": context.get("today", {}),
             }
 
+            display.start_agent("PortfolioManagerAgent")
             final_signal = self._portfolio_manager.analyze(decision_context)
+            action = final_signal.metadata.get("action", "HOLD")
+            display.complete_agent("PortfolioManagerAgent", normalize_signal(action), final_signal.confidence)
 
             logger.debug(
                 f"[{code}] 投资组合决策完成: {final_signal.metadata.get('action', 'unknown')} "

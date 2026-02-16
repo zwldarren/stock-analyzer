@@ -9,18 +9,53 @@ A股自选股智能分析系统 - 主调度程序 (Simplified)
     python -m stock_analyzer --dry-run    # 仅获取数据不分析
 """
 
+import atexit
+import logging
 import os
 import sys
 from datetime import datetime
 
 import click
-from loguru import logger
 
 from stock_analyzer.analysis import batch_analyze
 from stock_analyzer.config import Config, check_config_valid, get_config, get_config_safe
-from stock_analyzer.constants import get_signal_emoji
 from stock_analyzer.dependencies import get_data_manager, get_notification_service
-from stock_analyzer.utils.logging_config import setup_logging
+from stock_analyzer.utils.console_display import get_display
+from stock_analyzer.utils.logging_config import get_console, setup_logging
+
+logger = logging.getLogger(__name__)
+
+
+def _cleanup_resources() -> None:
+    try:
+        from stock_analyzer.ai.clients import shutdown_llm_http_clients
+
+        shutdown_llm_http_clients()
+    except Exception:
+        pass
+
+
+atexit.register(_cleanup_resources)
+
+
+def _print_banner() -> None:
+    """使用 Rich 输出启动横幅，替代 logger.info 避免格式混乱"""
+    console = get_console()
+    console.print()
+    console.rule("[bold cyan]A股自选股智能分析系统[/bold cyan]", style="cyan")
+    console.print(f"  运行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", style="dim")
+    console.print()
+
+
+def _print_analysis_header(stock_codes: list[str], max_workers: int, dry_run: bool) -> None:
+    """使用 Rich 输出分析配置摘要"""
+    console = get_console()
+    mode = "仅获取数据" if dry_run else "完整分析"
+    console.print(
+        f"📋 分析 [bold]{len(stock_codes)}[/bold] 只股票: [cyan]{', '.join(stock_codes)}[/cyan]"
+        f"  (并发: {max_workers}, 模式: {mode})"
+    )
+    console.print()
 
 
 @click.group(invoke_without_command=True)
@@ -100,15 +135,10 @@ def run_main(
             os.environ["https_proxy"] = config.system.https_proxy
             logger.debug(f"已设置 https_proxy: {config.system.https_proxy}")
 
-    # 配置日志（输出到控制台和文件）
-    # 命令行 --debug 参数优先，其次使用配置文件中的 debug 设置
     effective_debug = debug or config.system.debug
     setup_logging(debug=effective_debug, log_dir=config.logging.log_dir)
 
-    logger.info("=" * 60)
-    logger.info("A股自选股智能分析系统 启动")
-    logger.info(f"运行时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info("=" * 60)
+    _print_banner()
 
     # 验证配置
     warnings = config.validate_config()
@@ -158,12 +188,15 @@ def run_main(
             debug,
         )
 
-        logger.info("\n程序执行完成")
+        console = get_console()
+        console.print()
+        console.rule("[dim]执行完成[/dim]", style="dim")
+        console.print()
 
         return 0
 
     except KeyboardInterrupt:
-        logger.info("\n用户中断，程序退出")
+        logger.info("用户中断，程序退出")
         return 130
 
     except Exception as e:
@@ -200,9 +233,9 @@ def run_full_analysis(
             return []
 
         max_workers = workers or config.system.max_workers
-        logger.info(f"===== 开始分析 {len(stock_codes)} 只股票 =====")
-        logger.info(f"股票列表: {', '.join(stock_codes)}")
-        logger.info(f"并发数: {max_workers}, 模式: {'仅获取数据' if dry_run else '完整分析'}")
+
+        # 使用 Rich 输出分析头（不经过 logger）
+        _print_analysis_header(stock_codes, max_workers, dry_run)
 
         # 批量预取实时行情
         _prefetch_realtime_quotes(stock_codes)
@@ -221,15 +254,10 @@ def run_full_analysis(
                 no_notify,
             )
 
-        # 输出摘要
+        # 输出最终报告
         if results:
-            logger.info("\n===== 分析结果摘要 =====")
-            for r in sorted(results, key=lambda x: x.sentiment_score, reverse=True):
-                action = r.final_action or "HOLD"
-                emoji = get_signal_emoji(action)
-                logger.info(f"{emoji} {r.name}({r.code}): {action} | 评分 {r.sentiment_score} | {r.trend_prediction}")
-
-        logger.info("\n任务执行完成")
+            display = get_display()
+            display.show_final_report(results)
 
         return results
 
@@ -244,7 +272,7 @@ def _prefetch_realtime_quotes(stock_codes: list[str]) -> None:
         data_manager = get_data_manager()
         prefetch_count = data_manager.prefetch_realtime_quotes(stock_codes)
         if prefetch_count > 0:
-            logger.info(f"已启用批量预取架构：一次拉取全市场数据，{len(stock_codes)} 只股票共享缓存")
+            logger.debug(f"已启用批量预取架构：一次拉取全市场数据，{len(stock_codes)} 只股票共享缓存")
     except Exception as e:
         logger.debug(f"批量预取实时行情失败: {e}")
 

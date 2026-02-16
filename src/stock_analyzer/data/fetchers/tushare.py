@@ -102,7 +102,7 @@ class TushareFetcher(BaseFetcher):
         config = get_config()
 
         if not config.datasource.tushare_token:
-            logger.warning("Tushare Token 未配置，此数据源不可用")
+            logger.debug("Tushare Token 未配置，此数据源不可用")
             return
 
         try:
@@ -114,7 +114,7 @@ class TushareFetcher(BaseFetcher):
             # 获取 API 实例
             self._api = ts.pro_api()
 
-            logger.info("Tushare API 初始化成功")
+            logger.debug("Tushare API 初始化成功")
 
         except Exception as e:
             logger.error(f"Tushare API 初始化失败: {e}")

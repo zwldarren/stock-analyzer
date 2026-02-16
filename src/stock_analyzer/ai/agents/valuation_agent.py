@@ -149,7 +149,7 @@ class ValuationAgent(BaseAgent):
 
         if not valuations:
             # 没有可用的估值方法，返回中性信号
-            self._logger.warning(f"[{stock_code}] 无足够数据进行任何估值计算")
+            self._logger.debug(f"[{stock_code}] 无足够数据进行任何估值计算")
             return AgentSignal(
                 agent_name=self.name,
                 signal=SignalType.HOLD,
@@ -186,7 +186,7 @@ class ValuationAgent(BaseAgent):
 
         reasoning = " / ".join(reasoning_parts)
 
-        self._logger.info(
+        self._logger.debug(
             f"[{stock_code}] ValuationAgent分析完成: {signal} "
             f"(公允价值¥{fair_value:.2f}, 安全边际{margin_of_safety * 100:+.1f}%, "
             f"置信度{confidence}%, 方法:{method_count}种)"
@@ -393,15 +393,15 @@ class ValuationAgent(BaseAgent):
         # Average if both available
         if pe_value > 0 and pb_value > 0:
             avg_value = (pe_value + pb_value) / 2
-            self._logger.info(
+            self._logger.debug(
                 f"行业相对估值({industry_name}): PE估值={pe_value:.2f}, PB估值={pb_value:.2f}, 平均={avg_value:.2f}"
             )
             return avg_value
         elif pe_value > 0:
-            self._logger.info(f"行业相对估值(仅PE): {pe_value:.2f}")
+            self._logger.debug(f"行业相对估值(仅PE): {pe_value:.2f}")
             return pe_value
         elif pb_value > 0:
-            self._logger.info(f"行业相对估值(仅PB): {pb_value:.2f}")
+            self._logger.debug(f"行业相对估值(仅PB): {pb_value:.2f}")
             return pb_value
 
         return 0
@@ -445,12 +445,12 @@ class ValuationAgent(BaseAgent):
 
         # 记录偏离度信息
         if pb_deviation is not None:
-            self._logger.info(
+            self._logger.debug(
                 f"PB估值: BVPS={bvps:.2f} * 行业PB({industry_name})={industry_pb:.2f} = {value:.2f} "
                 f"(当前PB偏离行业{pb_deviation:+.1f}%)"
             )
         else:
-            self._logger.info(f"PB估值: BVPS={bvps:.2f} * 行业PB({industry_name})={industry_pb:.2f} = {value:.2f}")
+            self._logger.debug(f"PB估值: BVPS={bvps:.2f} * 行业PB({industry_name})={industry_pb:.2f} = {value:.2f}")
 
         return value
 

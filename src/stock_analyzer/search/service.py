@@ -100,35 +100,35 @@ class SearchService:
             )
             if provider:
                 self._providers.append(provider)
-                logger.info("已配置 searxng 搜索")
+                logger.debug("已配置 searxng 搜索")
 
         # 2. Tavily
         if tavily_keys:
             provider = ProviderRegistry.create_provider("tavily", ApiKeyProviderConfig(api_keys=tavily_keys))
             if provider:
                 self._providers.append(provider)
-                logger.info(f"已配置 tavily 搜索，共 {len(tavily_keys)} 个 API Key")
+                logger.debug(f"已配置 tavily 搜索，共 {len(tavily_keys)} 个 API Key")
 
         # 3. Brave Search
         if brave_keys:
             provider = ProviderRegistry.create_provider("brave", ApiKeyProviderConfig(api_keys=brave_keys))
             if provider:
                 self._providers.append(provider)
-                logger.info(f"已配置 brave 搜索，共 {len(brave_keys)} 个 API Key")
+                logger.debug(f"已配置 brave 搜索，共 {len(brave_keys)} 个 API Key")
 
         # 4. SerpAPI
         if serpapi_keys:
             provider = ProviderRegistry.create_provider("serpapi", ApiKeyProviderConfig(api_keys=serpapi_keys))
             if provider:
                 self._providers.append(provider)
-                logger.info(f"已配置 serpapi 搜索，共 {len(serpapi_keys)} 个 API Key")
+                logger.debug(f"已配置 serpapi 搜索，共 {len(serpapi_keys)} 个 API Key")
 
         # 5. Bocha
         if bocha_keys:
             provider = ProviderRegistry.create_provider("bocha", ApiKeyProviderConfig(api_keys=bocha_keys))
             if provider:
                 self._providers.append(provider)
-                logger.info(f"已配置 bocha 搜索，共 {len(bocha_keys)} 个 API Key")
+                logger.debug(f"已配置 bocha 搜索，共 {len(bocha_keys)} 个 API Key")
 
     def set_db(self, db: "DatabaseManager") -> None:
         """Set database manager for caching."""

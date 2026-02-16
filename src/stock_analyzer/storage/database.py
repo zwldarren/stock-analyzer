@@ -77,7 +77,7 @@ class DatabaseManager:
         Base.metadata.create_all(self._engine)
 
         self._initialized = True
-        logger.info(f"数据库初始化完成: {db_url}")
+        logger.debug(f"数据库初始化完成: {db_url}")
 
         # 注册退出钩子，确保程序退出时关闭数据库连接
         atexit.register(DatabaseManager._cleanup_engine, self._engine)

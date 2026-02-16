@@ -4,11 +4,12 @@
 提供定时执行分析任务的功能。
 """
 
+import logging
 import time
 from collections.abc import Callable
 from datetime import datetime, timedelta
 
-from loguru import logger
+logger = logging.getLogger(__name__)
 
 
 def run_with_schedule(

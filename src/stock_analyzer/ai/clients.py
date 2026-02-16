@@ -5,6 +5,10 @@ AI客户端模块 - 基于 litellm 的统一实现
 用于股票分析等需要LLM生成的场景
 """
 
+import asyncio
+import atexit
+import contextlib
+import inspect
 import json
 import logging
 import os
@@ -12,6 +16,7 @@ import time
 from typing import Any
 
 import litellm
+import urllib3
 from litellm import completion
 
 from stock_analyzer.config import get_config
@@ -20,10 +25,95 @@ from stock_analyzer.utils import calculate_backoff_delay
 
 logger = logging.getLogger(__name__)
 
-# 配置 litellm 日志级别 - 多管齐下抑制 debug 日志
-os.environ.setdefault("LITELLM_LOG", "WARNING")  # 环境变量方式
-litellm.set_verbose = False  # 禁用 verbose 输出
-litellm.drop_params = True  # 静默丢弃不支持的参数
+os.environ.setdefault("LITELLM_LOG", "WARNING")
+litellm.set_verbose = False
+litellm.drop_params = True
+
+
+def _cleanup_http_connections() -> None:
+    try:
+        urllib3.disable_warnings()
+        shutdown_llm_http_clients()
+    except Exception:
+        pass
+
+
+atexit.register(_cleanup_http_connections)
+
+
+def _collect_close_awaitables(resource: Any, awaitables: list[Any]) -> None:
+    if resource is None:
+        return
+
+    for method_name in ("aclose", "close"):
+        close_fn = getattr(resource, method_name, None)
+        if callable(close_fn):
+            with contextlib.suppress(Exception):
+                result = close_fn()
+                if inspect.isawaitable(result):
+                    awaitables.append(result)
+            break
+
+
+def _close_sync_resource(resource: Any) -> None:
+    close_fn = getattr(resource, "close", None)
+    if callable(close_fn):
+        with contextlib.suppress(Exception):
+            result = close_fn()
+            if inspect.isawaitable(result):
+                return
+
+
+def _close_cached_sync_clients(awaitables: list[Any]) -> None:
+    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache_dict = getattr(cache, "cache_dict", {}) if cache is not None else {}
+
+    if isinstance(cache_dict, dict):
+        for client in cache_dict.values():
+            _collect_close_awaitables(client, awaitables)
+            _collect_close_awaitables(getattr(client, "_client", None), awaitables)
+            _collect_close_awaitables(getattr(client, "client", None), awaitables)
+
+
+async def _close_cached_async_clients(awaitables: list[Any]) -> None:
+    if awaitables:
+        with contextlib.suppress(Exception):
+            await asyncio.gather(*awaitables, return_exceptions=True)
+
+    close_async = getattr(litellm, "close_litellm_async_clients", None)
+    if callable(close_async):
+        with contextlib.suppress(Exception):
+            await close_async()
+
+
+def _run_async_cleanup(coro: Any) -> None:
+    try:
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop and running_loop.is_running():
+            return
+
+        loop = asyncio.new_event_loop()
+        try:
+            loop.run_until_complete(coro)
+        finally:
+            loop.close()
+    except Exception:
+        pass
+
+
+def shutdown_llm_http_clients() -> None:
+    """Shutdown cached LiteLLM/OpenAI HTTP clients to avoid socket ResourceWarning on exit."""
+    pending_awaitables: list[Any] = []
+
+    _collect_close_awaitables(getattr(litellm, "client_session", None), pending_awaitables)
+    _collect_close_awaitables(getattr(litellm, "aclient_session", None), pending_awaitables)
+    _close_cached_sync_clients(pending_awaitables)
+    _run_async_cleanup(_close_cached_async_clients(pending_awaitables))
+
 
 # Default system prompt for stock analysis
 DEFAULT_SYSTEM_PROMPT = """你是一位专业的A股投资分析师，擅长市场分析和投资研究。
@@ -65,9 +155,7 @@ class LiteLLMClient:
         # 验证配置有效性
         self._available = self._validate_config()
 
-        if self._available:
-            logger.info(f"LiteLLM 客户端初始化成功 (模型: {model})")
-        else:
+        if not self._available:
             logger.warning(f"LiteLLM 客户端初始化失败 (模型: {model}) - 配置无效")
 
     def _validate_config(self) -> bool:

@@ -23,6 +23,7 @@ from stock_analyzer.analysis.context import (
 )
 from stock_analyzer.dependencies import get_ai_analyzer, get_data_manager, get_db
 from stock_analyzer.models import AnalysisResult
+from stock_analyzer.utils.console_display import get_display
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,9 @@ def analyze_stock(
     Returns:
         AnalysisResult with trading decision and reasoning
     """
-    logger.info(f"开始分析股票: {stock_code}")
+    logger.debug(f"开始分析股票: {stock_code}")
+    display = get_display()
+    display.update_stock_progress(stock_code, "analyzing")
 
     # 1. Get data manager
     data_service = get_data_manager()
@@ -52,6 +55,7 @@ def analyze_stock(
 
     if not context.get("raw_data"):
         logger.error(f"无法获取股票数据: {stock_code}")
+        display.update_stock_progress(stock_code, "error")
         return AnalysisResult(
             code=stock_code,
             name=f"Stock{stock_code}",
@@ -77,8 +81,10 @@ def analyze_stock(
             query_id="",
             news_content=None,
         )
-        logger.info(f"分析完成: {result.operation_advice}")
+        display.update_stock_progress(stock_code, "completed", result.name)
+        logger.debug(f"[{stock_code}] 分析完成: {result.operation_advice}")
     else:
+        display.update_stock_progress(stock_code, "error")
         logger.error(f"分析失败: {result.error_message if result else '未知错误'}")
 
     return result
@@ -98,25 +104,32 @@ def batch_analyze(
     Returns:
         List of successful AnalysisResult objects
     """
-    logger.info(f"开始批量分析 {len(stock_codes)} 只股票")
+    logger.debug(f"开始批量分析 {len(stock_codes)} 只股票")
+
+    display = get_display()
+    display.start_analysis(stock_codes)
 
     results: list[AnalysisResult] = []
 
-    # Use thread pool for concurrent analysis
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_code = {executor.submit(analyze_stock, code): code for code in stock_codes}
+    try:
+        # Use thread pool for concurrent analysis
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_code = {executor.submit(analyze_stock, code): code for code in stock_codes}
 
-        for future in as_completed(future_to_code):
-            code = future_to_code[future]
-            try:
-                result = future.result()
-                if result and result.success:
-                    results.append(result)
-                    logger.info(f"[{code}] 分析完成: {result.operation_advice}")
-                else:
-                    logger.warning(f"[{code}] 分析失败")
-            except Exception as e:
-                logger.error(f"[{code}] 分析出错: {e}")
+            for future in as_completed(future_to_code):
+                code = future_to_code[future]
+                try:
+                    result = future.result()
+                    if result and result.success:
+                        results.append(result)
+                        logger.debug(f"[{code}] 分析完成: {result.operation_advice}")
+                    else:
+                        logger.warning(f"[{code}] 分析失败")
+                except Exception as e:
+                    logger.error(f"[{code}] 分析出错: {e}")
+                    display.update_stock_progress(code, "error")
+    finally:
+        display.finish_analysis()
 
     return results
 

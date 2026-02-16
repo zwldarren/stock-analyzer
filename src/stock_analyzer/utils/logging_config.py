@@ -1,139 +1,146 @@
 """日志配置模块"""
 
-import sys
+import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from loguru import logger
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.theme import Theme
+
+_console: Console | None = None
+
+_live_display: Any = None
+_log_buffer: list[tuple[str, str]] = []
+
+
+def get_console() -> Console:
+    """获取全局 Console 实例，确保统一使用"""
+    global _console
+    if _console is None:
+        custom_theme = Theme(
+            {
+                "logging.level.info": "green",
+                "logging.level.warning": "yellow",
+                "logging.level.error": "red bold",
+                "logging.level.debug": "dim",
+                "banner": "bold cyan",
+                "banner.dim": "dim cyan",
+            }
+        )
+        _console = Console(theme=custom_theme, force_terminal=True)
+    return _console
+
+
+def set_live_display(live: Any) -> None:
+    """设置 Live 显示对象，用于协调日志输出"""
+    global _live_display
+    _live_display = live
+
+
+def clear_live_display() -> None:
+    """清除 Live 显示对象"""
+    global _live_display, _log_buffer
+    _live_display = None
+    # 清空缓冲区
+    _log_buffer.clear()
+
+
+def get_buffered_logs() -> list[tuple[str, str]]:
+    """获取缓冲的日志消息并清空缓冲区"""
+    global _log_buffer
+    logs = _log_buffer.copy()
+    _log_buffer.clear()
+    return logs
+
+
+class LiveAwareRichHandler(RichHandler):
+    """
+    自定义 RichHandler，能够感知 Live 显示并正确输出日志。
+
+    当 Live 显示（如进度条）激活时，将日志消息缓冲，由 Live 显示负责渲染。
+    当没有 Live 显示时，直接输出到控制台。
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._buffer_logs = False
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """处理日志记录"""
+        global _live_display, _log_buffer
+
+        # 格式化消息
+        message = self.format(record)
+        level_name = record.levelname
+
+        if _live_display is not None and _live_display.is_started:
+            _log_buffer.append((level_name, message))
+            return
+        super().emit(record)
 
 
 def setup_logging(
     debug: bool = False,
     log_dir: str = "./logs",
-    json_format: bool = False,
 ) -> None:
-    """配置 Loguru 日志系统
+    """配置日志系统
 
     Args:
         debug: 是否启用调试模式
         log_dir: 日志文件保存目录
-        json_format: 是否使用 JSON 格式（便于日志收集系统解析）
     """
     log_path = Path(log_dir)
     log_path.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_path / f"stock_analysis_{timestamp}.log"
     debug_log_file = log_path / f"stock_analysis_debug_{timestamp}.log"
 
-    # 移除默认的 stderr handler
-    logger.remove()
+    # 获取根 logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
 
-    # 控制台 Handler - 彩色输出
-    console_level = "DEBUG" if debug else "INFO"
+    # 清除现有 handlers（避免重复）
+    root_logger.handlers.clear()
 
-    def shorten_name(record):
-        """缩短模块路径，移除 stock_analyzer 前缀（但保留至少两级）"""
-        name = record["name"]
-        parts = name.split(".")
-        if len(parts) > 2 and parts[0] == "stock_analyzer":
-            record["extra"]["short_name"] = ".".join(parts[1:])
-        else:
-            record["extra"]["short_name"] = name
-        return True
-
-    console_format = (
-        "<green>{time:HH:mm:ss}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{extra[short_name]}</cyan>:<cyan>{line}</cyan> | "
-        "<level>{message}</level>"
+    # 控制台 Handler
+    console = get_console()
+    console_handler = LiveAwareRichHandler(
+        console=console,
+        show_time=True,
+        show_path=debug,
+        rich_tracebacks=True,
+        tracebacks_show_locals=debug,
+        show_level=True,
+        omit_repeated_times=True,
+        markup=True,
     )
-    logger.add(
-        sys.stdout,
-        level=console_level,
-        format=console_format,
-        colorize=True,
-        enqueue=True,
-        filter=shorten_name,
-    )
+    console_level = logging.DEBUG if debug else logging.INFO
+    console_handler.setLevel(console_level)
+    # 使用更简洁的格式，Rich 会自动添加时间
+    console_handler.setFormatter(logging.Formatter("%(message)s"))
+    root_logger.addHandler(console_handler)
 
-    # 常规日志文件 - INFO 级别及以上
-    if json_format:
-        file_format = "{extra[json]}"
-    else:
-        file_format = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[short_name]}:{line} | {message}"
-
-    logger.add(
-        str(log_file),
-        level="INFO",
-        format=file_format,
-        rotation="00:00",  # 每天午夜轮转
-        retention="30 days",  # 保留30天
-        encoding="utf-8",
-        enqueue=True,
-        delay=True,  # 延迟打开文件
-        filter=shorten_name,
-    )
-
-    # 调试日志文件 - DEBUG 级别及以上
-    # 调试日志保留完整路径以便调试
-    debug_format = "{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}"
-    logger.add(
-        str(debug_log_file),
-        level="DEBUG",
-        format=debug_format,
-        rotation="00:00",
-        retention="7 days",  # 调试日志保留7天
-        encoding="utf-8",
-        enqueue=True,
-        delay=True,
-    )
-
-    # 拦截标准库的 logging，使其输出到 loguru
-    _intercept_standard_logging()
+    # 文件 Handler - 调试日志 (DEBUG 及以上)，仅在 debug 模式启用
+    if debug:
+        debug_handler = logging.FileHandler(debug_log_file, encoding="utf-8")
+        debug_handler.setLevel(logging.DEBUG)
+        debug_handler.setFormatter(
+            logging.Formatter("%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d | %(message)s")
+        )
+        root_logger.addHandler(debug_handler)
+        # 输出初始化信息到调试日志
+        logger = logging.getLogger(__name__)
+        logger.debug(f"日志系统初始化完成，日志目录: {log_path.absolute()}")
+        logger.debug(f"调试日志: {debug_log_file}")
 
     # 降低第三方库日志级别
     _suppress_noisy_loggers()
 
-    logger.info(f"日志系统初始化完成，日志目录: {log_path.absolute()}")
-    logger.info(f"常规日志: {log_file}")
-    logger.info(f"调试日志: {debug_log_file}")
-
-
-def _intercept_standard_logging() -> None:
-    """拦截 Python 标准库的 logging，重定向到 loguru"""
-    import logging
-
-    class InterceptHandler(logging.Handler):
-        """将标准库日志转发到 loguru"""
-
-        def emit(self, record: logging.LogRecord) -> None:
-            try:
-                level = logger.level(record.levelname).name
-            except ValueError:
-                level = record.levelno
-
-            frame, depth = sys._getframe(6), 6
-            while frame and frame.f_code.co_filename == logging.__file__:
-                frame = frame.f_back
-                depth += 1
-
-            logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
-
-    # 配置根 logger 使用拦截 handler
-    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
-
-    # 替换所有现有 logger 的 handlers
-    for name in logging.root.manager.loggerDict:
-        logging_logger = logging.getLogger(name)
-        logging_logger.handlers = [InterceptHandler()]
-        logging_logger.propagate = False
-
 
 def _suppress_noisy_loggers() -> None:
     """降低嘈杂的第三方库日志级别"""
-    import logging
-
     noisy_loggers = [
         "urllib3",
         "urllib3.connectionpool",
@@ -150,7 +157,6 @@ def _suppress_noisy_loggers() -> None:
         "discord.client",
         "websockets",
         "websockets.client",
-        # litellm 相关 - 全面抑制
         "litellm",
         "litellm.llms",
         "litellm.utils",
@@ -160,9 +166,6 @@ def _suppress_noisy_loggers() -> None:
         "litellm.caching",
         "litellm.main",
         "litellm.litellm_core_utils",
-        "LiteLLM",
-        "LiteLLM Proxy",
-        "LiteLLM Router",
     ]
 
     for name in noisy_loggers:

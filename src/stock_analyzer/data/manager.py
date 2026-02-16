@@ -69,7 +69,6 @@ class DataManager:
             try:
                 fetcher = fetcher_class()
                 self._fetchers.append(fetcher)
-                logger.info(f"Initialized data source: {fetcher.name}")
             except Exception as e:
                 logger.debug(f"Failed to initialize {fetcher_class.__name__}: {e}")
 

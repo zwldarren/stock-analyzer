@@ -135,7 +135,6 @@ docker run -it --env-file .env stock-analyzer
 ## AI/ML Patterns
 
 - **API clients**: Support multiple providers (Gemini, OpenAI, DeepSeek)
-- **JSON parsing**: Use `json_repair` for handling LLM output
 - **Rate limiting**: Implement delays between API calls
 - **Prompts**: Stored as constants in `ai/prompts.py`, version controlled
 - **Retry logic**: Use exponential backoff for API failures
