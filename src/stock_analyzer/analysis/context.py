@@ -18,6 +18,57 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _backfill_valuation_multiples(
+    valuation_data: dict[str, Any],
+    realtime_quote: "UnifiedRealtimeQuote | None",
+    data_service: Any,
+    stock_code: str,
+) -> None:
+    """Backfill missing PE/PB from alternative realtime sources when possible."""
+    missing_pe = "pe_ratio" not in valuation_data
+    missing_pb = "pb_ratio" not in valuation_data
+    if not (missing_pe or missing_pb):
+        return
+
+    if not hasattr(data_service, "_try_realtime_by_source"):
+        return
+
+    current_source = None
+    if realtime_quote and getattr(realtime_quote, "source", None):
+        source_obj = realtime_quote.source
+        current_source = source_obj.value if hasattr(source_obj, "value") else str(source_obj)
+
+    fallback_sources = ["akshare_em", "tencent", "akshare_sina", "tushare"]
+    for source in fallback_sources:
+        if source == current_source:
+            continue
+
+        try:
+            alt_quote = data_service._try_realtime_by_source(stock_code, source)
+        except Exception as e:
+            logger.debug(f"[{stock_code}] 估值字段补齐失败({source}): {e}")
+            continue
+
+        if not alt_quote:
+            continue
+
+        if missing_pe:
+            pe = getattr(alt_quote, "pe_ratio", None)
+            if pe is not None and pe > 0:
+                valuation_data["pe_ratio"] = float(pe)
+                missing_pe = False
+
+        if missing_pb:
+            pb = getattr(alt_quote, "pb_ratio", None)
+            if pb is not None and pb > 0:
+                valuation_data["pb_ratio"] = float(pb)
+                missing_pb = False
+
+        if not (missing_pe or missing_pb):
+            logger.debug(f"[{stock_code}] 估值字段补齐成功: 来源={source}")
+            break
+
+
 def _get_default_technical_indicators(current_price: float = 0.0, ma20: float = 0.0) -> dict[str, float]:
     """Return default technical indicator values when calculation fails or data is insufficient.
 
@@ -322,6 +373,8 @@ def build_valuation_context(
             valuation_data["pe_ratio"] = float(pe)
         if pb is not None and pb > 0:
             valuation_data["pb_ratio"] = float(pb)
+
+    _backfill_valuation_multiples(valuation_data, realtime_quote, data_service, stock_code)
 
     # Get industry data
     industry_name = None

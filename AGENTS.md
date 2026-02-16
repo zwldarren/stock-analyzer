@@ -96,17 +96,6 @@ docker run -it --env-file .env stock-analyzer
       return api.get_data(code)
   ```
 
-### Logging
-- Use appropriate levels: `logger.debug()`, `logger.info()`, `logger.warning()`, `logger.error()`
-- Include context in log messages (stock code, operation)
-- Logging messages should be Chinese for user-facing logs, English for developer/debug logs
-- **Example**:
-  ```python
-  logger.info(f"开始分析股票: {stock_code}")
-  logger.warning(f"数据源 {provider} 不可用，切换到备选")
-  logger.error(f"分析失败: {e}")
-  ```
-
 ### Documentation
 - **Docstrings**: Use triple quotes for modules, classes, and functions (English)
 - **Comments**: Use Chinese comments for inline explanations (project is bilingual)
@@ -145,7 +134,6 @@ docker run -it --env-file .env stock-analyzer
 - `@pytest.mark.live`: Tests that call real data provider APIs (may consume quota)
 - `@pytest.mark.slow`: Tests that are slow to run
 - Use `pytest --run-live` to include live tests
-- Use `pytest -m "not slow"` to skip slow tests
 
 ### Test Structure
 - Unit tests: `tests/unit/`
