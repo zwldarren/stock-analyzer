@@ -25,7 +25,6 @@ dependencies = [
     "pydantic-settings>=2.0.0",
     "pytdx>=1.72",
     "python-dotenv>=1.2.1",
-    "questionary>=2.1.1",
     "schedule>=1.2.2",
     "serpapi>=0.1.5",
     "sqlalchemy>=2.0.46",

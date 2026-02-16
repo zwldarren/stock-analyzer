@@ -9,7 +9,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-from stock_analyzer.context_builders import (
+from stock_analyzer.analysis.context import (
     build_basic_context,
     build_chip_context,
     build_financial_context,
@@ -138,7 +138,7 @@ def _build_analysis_context(
     Returns:
         Context dict
     """
-    from stock_analyzer.stock_name_resolver import StockNameResolver
+    from stock_analyzer.data.stock_name_resolver import StockNameResolver
 
     # 1. Get basic data
     realtime_quote = data_service.get_realtime_quote(stock_code)

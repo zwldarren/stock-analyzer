@@ -171,7 +171,9 @@ class AgentCoordinator:
                     success=True,
                 )
 
-                self._logger.debug(f"[{stock_code}] Agent {name} 完成: {normalized_signal} (置信度{signal.confidence}%)")
+                self._logger.debug(
+                    f"[{stock_code}] Agent {name} 完成: {normalized_signal} (置信度{signal.confidence}%)"
+                )
                 return name, result
 
             except Exception as e:

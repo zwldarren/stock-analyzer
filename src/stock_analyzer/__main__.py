@@ -16,11 +16,10 @@ from datetime import datetime
 import click
 from loguru import logger
 
-from stock_analyzer.analyzer import batch_analyze
+from stock_analyzer.analysis import batch_analyze
 from stock_analyzer.config import Config, check_config_valid, get_config, get_config_safe
-from stock_analyzer.constants import get_action_emoji
+from stock_analyzer.constants import get_signal_emoji
 from stock_analyzer.dependencies import get_data_manager, get_notification_service
-from stock_analyzer.setup_wizard import init_command
 from stock_analyzer.utils.logging_config import setup_logging
 
 
@@ -227,7 +226,7 @@ def run_full_analysis(
             logger.info("\n===== 分析结果摘要 =====")
             for r in sorted(results, key=lambda x: x.sentiment_score, reverse=True):
                 action = r.final_action or "HOLD"
-                emoji = get_action_emoji(action)
+                emoji = get_signal_emoji(action)
                 logger.info(f"{emoji} {r.name}({r.code}): {action} | 评分 {r.sentiment_score} | {r.trend_prediction}")
 
         logger.info("\n任务执行完成")
@@ -328,10 +327,6 @@ def _send_to_channels(notifier, report: str, results: list) -> None:
         logger.info("决策仪表盘推送成功")
     else:
         logger.warning("决策仪表盘推送失败")
-
-
-# 添加 init 子命令
-cli.add_command(init_command)
 
 
 # 主入口点

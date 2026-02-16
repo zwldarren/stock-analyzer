@@ -12,7 +12,11 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from stock_analyzer.config import get_config
+from stock_analyzer.search.base import register_builtin_providers
 from stock_analyzer.storage import DatabaseManager
+
+# Initialize search providers at module load time
+register_builtin_providers()
 
 if TYPE_CHECKING:
     from stock_analyzer.ai.analyzer import AIAnalyzer

@@ -35,7 +35,7 @@ from stock_analyzer.config import get_config
 from stock_analyzer.data.base import STANDARD_COLUMNS, BaseFetcher
 from stock_analyzer.exceptions import DataFetchError, RateLimitError
 from stock_analyzer.models import UnifiedRealtimeQuote
-from stock_analyzer.utils.stock_code import is_us_code
+from stock_analyzer.utils.stock_code import convert_to_provider_format, is_us_code
 
 logger = logging.getLogger(__name__)
 
@@ -173,35 +173,26 @@ class TushareFetcher(BaseFetcher):
 
     def _convert_stock_code(self, stock_code: str) -> str:
         """
-        转换股票代码为 Tushare 格式
+        Convert stock code to Tushare format.
 
-        Tushare 要求的格式：
-        - 沪市：600519.SH
-        - 深市：000001.SZ
+        Tushare required format:
+        - Shanghai: 600519.SH
+        - Shenzhen: 000001.SZ
 
         Args:
-            stock_code: 原始代码，如 '600519', '000001'
+            stock_code: Original code (e.g., '600519', '000001')
 
         Returns:
-            Tushare 格式代码，如 '600519.SH', '000001.SZ'
+            Tushare formatted code (e.g., '600519.SH', '000001.SZ')
         """
         code = stock_code.strip()
 
-        # 已经包含后缀的情况
+        # Already has suffix
         if "." in code:
             return code.upper()
 
-        # 根据代码前缀判断市场
-        # 沪市：600xxx, 601xxx, 603xxx, 688xxx (科创板)
-        # 深市：000xxx, 002xxx, 300xxx (创业板)
-        if code.startswith(("600", "601", "603", "688")):
-            return f"{code}.SH"
-        elif code.startswith(("000", "002", "300")):
-            return f"{code}.SZ"
-        else:
-            # 默认尝试深市
-            logger.warning(f"无法确定股票 {code} 的市场，默认使用深市")
-            return f"{code}.SZ"
+        # Use unified conversion function
+        return convert_to_provider_format(stock_code, "tushare")
 
     @retry(
         stop=stop_after_attempt(3),

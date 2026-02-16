@@ -14,7 +14,6 @@ YfinanceFetcher - 兜底数据源 (Priority 4)
 """
 
 import logging
-import re
 from typing import Any
 
 import pandas as pd
@@ -28,6 +27,7 @@ from tenacity import (
 
 from stock_analyzer.data.base import STANDARD_COLUMNS, BaseFetcher, DataFetchError
 from stock_analyzer.models import RealtimeSource, UnifiedRealtimeQuote
+from stock_analyzer.utils.stock_code import StockType, convert_to_provider_format, detect_stock_type
 
 logger = logging.getLogger(__name__)
 
@@ -64,19 +64,19 @@ class YfinanceFetcher(BaseFetcher):
 
     def _convert_stock_code(self, stock_code: str) -> str:
         """
-        转换股票代码为 Yahoo Finance 格式
+        Convert stock code to Yahoo Finance format.
 
-        Yahoo Finance 代码格式：
-        - A股沪市：600519.SS (Shanghai Stock Exchange)
-        - A股深市：000001.SZ (Shenzhen Stock Exchange)
-        - 港股：0700.HK (Hong Kong Stock Exchange)
-        - 美股：AAPL, TSLA, GOOGL (无需后缀)
+        Yahoo Finance code format:
+        - A-share Shanghai: 600519.SS
+        - A-share Shenzhen: 000001.SZ
+        - HK stocks: 0700.HK
+        - US stocks: AAPL (no suffix)
 
         Args:
-            stock_code: 原始代码，如 '600519', 'hk00700', 'AAPL'
+            stock_code: Original code (e.g., '600519', 'hk00700', 'AAPL')
 
         Returns:
-            Yahoo Finance 格式代码
+            Yahoo Finance formatted code
 
         Examples:
             >>> fetcher._convert_stock_code('600519')
@@ -86,37 +86,14 @@ class YfinanceFetcher(BaseFetcher):
             >>> fetcher._convert_stock_code('AAPL')
             'AAPL'
         """
-        import re
-
         code = stock_code.strip().upper()
 
-        # 美股：1-5个大写字母（可能包含 .），直接返回
-        if re.match(r"^[A-Z]{1,5}(\.[A-Z])?$", code):
-            logger.debug(f"识别为美股代码: {code}")
-            return code
-
-        # 港股：hk前缀 -> .HK后缀
-        if code.startswith("HK"):
-            hk_code = code[2:].lstrip("0") or "0"  # 去除前导0，但保留至少一个0
-            hk_code = hk_code.zfill(4)  # 补齐到4位
-            logger.debug(f"转换港股代码: {stock_code} -> {hk_code}.HK")
-            return f"{hk_code}.HK"
-
-        # 已经包含后缀的情况
+        # Already has suffix
         if ".SS" in code or ".SZ" in code or ".HK" in code:
             return code
 
-        # 去除可能的 .SH 后缀
-        code = code.replace(".SH", "")
-
-        # A股：根据代码前缀判断市场
-        if code.startswith(("600", "601", "603", "688")):
-            return f"{code}.SS"
-        elif code.startswith(("000", "002", "300")):
-            return f"{code}.SZ"
-        else:
-            logger.warning(f"无法确定股票 {code} 的市场，默认使用深市")
-            return f"{code}.SZ"
+        # Use unified conversion function
+        return convert_to_provider_format(stock_code, "yfinance")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -293,14 +270,13 @@ class YfinanceFetcher(BaseFetcher):
 
     def _is_us_stock(self, stock_code: str) -> bool:
         """
-        判断代码是否为美股
+        Check if code is a US stock.
 
-        美股代码规则：
-        - 1-5个大写字母，如 'AAPL', 'TSLA'
-        - 可能包含 '.'，如 'BRK.B'
+        US stock code rules:
+        - 1-5 uppercase letters, e.g., 'AAPL', 'TSLA'
+        - May contain '.', e.g., 'BRK.B'
         """
-        code = stock_code.strip().upper()
-        return bool(re.match(r"^[A-Z]{1,5}(\.[A-Z])?$", code))
+        return detect_stock_type(stock_code) == StockType.US
 
     def get_realtime_quote(self, stock_code: str, **kwargs) -> UnifiedRealtimeQuote | None:
         """

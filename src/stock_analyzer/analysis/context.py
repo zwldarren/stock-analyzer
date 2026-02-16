@@ -10,12 +10,10 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
-from stock_analyzer.technical_indicators import calculate_all_indicators
+from stock_analyzer.analysis.indicators import calculate_all_indicators
 
 if TYPE_CHECKING:
-    from stock_analyzer.models import (
-        UnifiedRealtimeQuote,
-    )
+    from stock_analyzer.models.quotes import UnifiedRealtimeQuote
 
 logger = logging.getLogger(__name__)
 

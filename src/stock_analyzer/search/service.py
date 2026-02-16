@@ -11,12 +11,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from stock_analyzer.models import SearchResponse, SearchResult
-from stock_analyzer.search import (
+from stock_analyzer.search.base import (
     ApiKeyProviderConfig,
     ProviderRegistry,
     SearxngProviderConfig,
 )
-from stock_analyzer.search.interface import ISearchService
 
 if TYPE_CHECKING:
     from stock_analyzer.storage.database import DatabaseManager
@@ -24,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class SearchService(ISearchService):
+class SearchService:
     """
     Search service.
 

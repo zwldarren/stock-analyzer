@@ -6,6 +6,7 @@
 子模块:
     - logging_config: 日志配置
     - stock_code: 股票代码处理工具
+    - stock_name_resolver: 股票名称解析器
 """
 
 from stock_analyzer.utils.logging_config import setup_logging
@@ -15,18 +16,9 @@ from stock_analyzer.utils.stock_code import (
     is_etf_code,
     is_hk_code,
     is_us_code,
-    normalize_stock_code,
 )
 
-__all__ = [
-    "setup_logging",
-    "StockType",
-    "detect_stock_type",
-    "is_us_code",
-    "is_hk_code",
-    "is_etf_code",
-    "normalize_stock_code",
-]
+__all__ = ["setup_logging", "StockType", "detect_stock_type", "is_us_code", "is_hk_code", "is_etf_code"]
 
 
 def calculate_backoff_delay(attempt: int, base_delay: float, max_delay: float = 60.0) -> float:

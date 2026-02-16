@@ -1,9 +1,5 @@
 """
 Data manager: unified data access with source management and caching.
-
-Merges:
-- domain/services/data_service.py (DataService)
-- infrastructure/data_sources/base.py (DataFetcherManager)
 """
 
 import logging

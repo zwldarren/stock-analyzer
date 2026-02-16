@@ -253,7 +253,9 @@ class EfinanceFetcher(BaseFetcher):
 
             # 记录返回数据摘要
             if df is not None and not df.empty:
-                logger.debug(f"[API返回] ef.fund.get_quote_history 成功: 返回 {len(df)} 行数据, 耗时 {api_elapsed:.2f}s")
+                logger.debug(
+                    f"[API返回] ef.fund.get_quote_history 成功: 返回 {len(df)} 行数据, 耗时 {api_elapsed:.2f}s"
+                )
                 logger.debug(f"[API返回] 列名: {list(df.columns)}")
                 if "日期" in df.columns:
                     logger.debug(f"[API返回] 日期范围: {df['日期'].iloc[0]} ~ {df['日期'].iloc[-1]}")
@@ -824,7 +826,9 @@ class EfinanceFetcher(BaseFetcher):
             api_elapsed = _time.time() - api_start
 
             if df is not None and not df.empty:
-                logger.debug(f"[API返回] ef.stock.get_belong_board 成功: 返回 {len(df)} 个板块, 耗时 {api_elapsed:.2f}s")
+                logger.debug(
+                    f"[API返回] ef.stock.get_belong_board 成功: 返回 {len(df)} 个板块, 耗时 {api_elapsed:.2f}s"
+                )
             return df
 
         except Exception as e:

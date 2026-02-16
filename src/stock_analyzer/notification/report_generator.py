@@ -9,7 +9,6 @@ from datetime import datetime
 
 from stock_analyzer.constants import (
     REPORT_EMOJI,
-    get_action_emoji,
     get_signal_emoji,
 )
 from stock_analyzer.models import AnalysisResult
@@ -49,9 +48,9 @@ class ReportGenerator:
             f"# {REPORT_EMOJI['title']} {report_date} AI投资决策报告",
             "",
             f"> 共分析 **{len(results)}** 只股票 | "
-            f"{get_action_emoji('BUY')}买入:{action_counts['BUY']} "
-            f"{get_action_emoji('HOLD')}持有:{action_counts['HOLD']} "
-            f"{get_action_emoji('SELL')}卖出:{action_counts['SELL']}",
+            f"{get_signal_emoji('BUY')}买入:{action_counts['BUY']} "
+            f"{get_signal_emoji('HOLD')}持有:{action_counts['HOLD']} "
+            f"{get_signal_emoji('SELL')}卖出:{action_counts['SELL']}",
             "",
             "---",
             "",
@@ -62,7 +61,7 @@ class ReportGenerator:
             lines.extend([f"## {REPORT_EMOJI['dashboard']} 今日决策概览", ""])
             for r in sorted_results:
                 action = r.final_action or "HOLD"
-                emoji = get_action_emoji(action)
+                emoji = get_signal_emoji(action)
                 position_ratio = r.position_ratio or 0
                 ratio_str = f" | 仓位{position_ratio * 100:.0f}%" if position_ratio > 0 else ""
                 lines.append(f"{emoji} **{r.name}({r.code})**: **{action}** | 置信度{r.sentiment_score}%{ratio_str}")
@@ -81,7 +80,7 @@ class ReportGenerator:
     def _generate_stock_section(result: AnalysisResult) -> list[str]:
         """Generate report section for a single stock."""
         action = result.final_action or "HOLD"
-        action_emoji = get_action_emoji(action)
+        action_emoji = get_signal_emoji(action)
         stock_name = result.name if result.name and not result.name.startswith("股票") else f"股票{result.code}"
 
         lines = [
@@ -169,7 +168,7 @@ class ReportGenerator:
         """Generate single stock report for notifications."""
         report_date = datetime.now().strftime("%Y-%m-%d %H:%M")
         action = result.final_action or "HOLD"
-        action_emoji = get_action_emoji(action)
+        action_emoji = get_signal_emoji(action)
         stock_name = result.name if result.name and not result.name.startswith("股票") else f"股票{result.code}"
 
         lines = [

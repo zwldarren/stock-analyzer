@@ -1,7 +1,6 @@
 """
 Business constants for stock analyzer.
 
-Migrated from domain/constants.py
 Contains signal types, emoji mappings, and other core business constants.
 """
 
@@ -61,19 +60,6 @@ def get_signal_emoji(signal: str) -> str:
     """
     normalized = signal.lower().strip()
     return SIGNAL_EMOJI_MAP.get(normalized, "⚪")
-
-
-def get_action_emoji(action: str) -> str:
-    """
-    Get emoji for action type.
-
-    Args:
-        action: Action type (buy/sell/hold), case insensitive
-
-    Returns:
-        Corresponding emoji string
-    """
-    return get_signal_emoji(action)
 
 
 def get_alert_emoji(alert_type: str) -> str:

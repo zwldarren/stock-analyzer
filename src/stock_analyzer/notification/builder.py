@@ -6,8 +6,8 @@
 
 from stock_analyzer.constants import (
     REPORT_EMOJI,
-    get_action_emoji,
     get_alert_emoji,
+    get_signal_emoji,
 )
 from stock_analyzer.models import AnalysisResult
 
@@ -40,7 +40,7 @@ class NotificationBuilder:
 
         for r in sorted(results, key=lambda x: x.sentiment_score, reverse=True):
             action = r.final_action or "HOLD"
-            emoji = get_action_emoji(action)
+            emoji = get_signal_emoji(action)
             lines.append(f"{emoji} {r.name}({r.code}): {action} | 评分 {r.sentiment_score}")
 
         return "\n".join(lines)

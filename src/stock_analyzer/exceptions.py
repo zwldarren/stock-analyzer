@@ -1,7 +1,5 @@
 """
 Exception hierarchy for stock analyzer.
-
-Migrated from domain/exceptions.py
 """
 
 import logging

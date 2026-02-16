@@ -1,5 +1,6 @@
 """Pydantic Settings configuration management."""
 
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -9,6 +10,9 @@ from pydantic import AfterValidator, BeforeValidator, Field, ValidationError, co
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from stock_analyzer.exceptions import ConfigurationError
+from stock_analyzer.utils.stock_code import StockType, detect_stock_type
+
+logger = logging.getLogger(__name__)
 
 
 def _find_project_root() -> Path:
@@ -293,16 +297,13 @@ class Config(BaseSettings):
             # Validate and filter invalid stock codes
             codes = [code.strip() for code in v.split(",") if code.strip()]
             valid_codes = []
-            from stock_analyzer.utils.stock_code import StockType, detect_stock_type
 
             for code in codes:
                 stock_type = detect_stock_type(code)
                 if stock_type != StockType.UNKNOWN:
                     valid_codes.append(code)
                 else:
-                    import logging
-
-                    logging.getLogger(__name__).warning(f"无效的股票代码格式: {code}，已跳过")
+                    logger.warning(f"无效的股票代码格式: {code}，已跳过")
             return ",".join(valid_codes)
         return ""
 

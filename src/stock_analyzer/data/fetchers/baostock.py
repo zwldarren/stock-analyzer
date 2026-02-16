@@ -28,7 +28,7 @@ from tenacity import (
 )
 
 from stock_analyzer.data.base import STANDARD_COLUMNS, BaseFetcher, DataFetchError
-from stock_analyzer.utils.stock_code import is_us_code
+from stock_analyzer.utils.stock_code import convert_to_provider_format, is_us_code
 
 logger = logging.getLogger(__name__)
 
@@ -118,35 +118,26 @@ class BaostockFetcher(BaseFetcher):
 
     def _convert_stock_code(self, stock_code: str) -> str:
         """
-        转换股票代码为 Baostock 格式
+        Convert stock code to Baostock format.
 
-        Baostock 要求的格式：
-        - 沪市：sh.600519
-        - 深市：sz.000001
+        Baostock required format:
+        - Shanghai: sh.600519
+        - Shenzhen: sz.000001
 
         Args:
-            stock_code: 原始代码，如 '600519', '000001'
+            stock_code: Original code (e.g., '600519', '000001')
 
         Returns:
-            Baostock 格式代码，如 'sh.600519', 'sz.000001'
+            Baostock formatted code (e.g., 'sh.600519', 'sz.000001')
         """
         code = stock_code.strip()
 
-        # 已经包含前缀的情况
+        # Already has prefix
         if code.startswith(("sh.", "sz.")):
             return code.lower()
 
-        # 去除可能的后缀
-        code = code.replace(".SH", "").replace(".SZ", "").replace(".sh", "").replace(".sz", "")
-
-        # 根据代码前缀判断市场
-        if code.startswith(("600", "601", "603", "688")):
-            return f"sh.{code}"
-        elif code.startswith(("000", "002", "300")):
-            return f"sz.{code}"
-        else:
-            logger.warning(f"无法确定股票 {code} 的市场，默认使用深市")
-            return f"sz.{code}"
+        # Use unified conversion function
+        return convert_to_provider_format(stock_code, "baostock")
 
     @retry(
         stop=stop_after_attempt(3),

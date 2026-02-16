@@ -18,9 +18,9 @@ import logging
 from typing import Any
 
 from stock_analyzer.ai.interface import IAIAnalyzer
+from stock_analyzer.data.stock_name_resolver import StockNameResolver
 from stock_analyzer.exceptions import AnalysisError
 from stock_analyzer.models import AnalysisResult
-from stock_analyzer.stock_name_resolver import StockNameResolver
 
 logger = logging.getLogger(__name__)
 

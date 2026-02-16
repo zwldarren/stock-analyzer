@@ -9,7 +9,9 @@ from stock_analyzer.search.base import (
     ApiKeySearchProvider,
     BaseSearchProvider,
     ProviderConfig,
+    ProviderRegistry,
     SearxngProviderConfig,
+    register_builtin_providers,
 )
 from stock_analyzer.search.impl import (
     BochaSearchProvider,
@@ -18,13 +20,7 @@ from stock_analyzer.search.impl import (
     SerpAPISearchProvider,
     TavilySearchProvider,
 )
-from stock_analyzer.search.registry import (
-    ProviderRegistry,
-    register_builtin_providers,
-)
 from stock_analyzer.search.service import SearchService
-
-register_builtin_providers()
 
 __all__ = [
     "SearchService",
