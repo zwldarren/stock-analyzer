@@ -15,9 +15,8 @@ Inspired by ai-hedge-fund's News Sentiment Analyst.
 import logging
 from typing import TYPE_CHECKING, Any
 
-import json_repair
-
 from stock_analyzer.ai.clients import get_llm_client
+from stock_analyzer.ai.tools import ANALYZE_SIGNAL_TOOL
 from stock_analyzer.search import SearchService
 
 from .base import AgentSignal, BaseAgent, SignalType
@@ -77,22 +76,7 @@ HOLD: Mixed sentiment OR neutral_articles majority OR insufficient relevant news
 - 30-49%: Unclear sentiment or mostly irrelevant news
 - 10-29%: No relevant news or highly conflicting signals
 
-=== Output Format ===
-Return JSON only:
-{
-    "signal": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "Concise analysis in Chinese (max 200 chars)",
-    "sentiment": "bullish|bearish|neutral",
-    "sentiment_score": 65,
-    "bullish_articles": 3,
-    "bearish_articles": 1,
-    "neutral_articles": 2,
-    "risk_factors": ["risk1", "risk2"],
-    "positive_catalysts": ["catalyst1", "catalyst2"],
-    "key_headlines": ["headline1", "headline2"],
-    "irrelevant_results": ["filtered result 1"]
-}"""
+Use the analyze_signal function to return your analysis."""
 
 NEWS_SENTIMENT_USER_PROMPT_TEMPLATE = """请作为专业的新闻情绪分析师，分析以下关于 {stock_name}({stock_code}) 的新闻。
 
@@ -105,29 +89,12 @@ NEWS_SENTIMENT_USER_PROMPT_TEMPLATE = """请作为专业的新闻情绪分析师
 3. 统计各类别数量
 4. 识别风险因素和利好催化
 5. 综合判断整体情绪（bullish/bearish/neutral）
-6. 生成交易信号
+6. 使用 analyze_signal 函数返回交易信号
 
 === 信号阈值 ===
 - BUY: 强烈看多，多篇重大利好
 - SELL: 看空，多篇重大利空
-- HOLD: 中性或不确定，建议持有观望
-
-=== 输出要求 ===
-请严格按照JSON格式输出，所有分析理由使用中文：
-{{
-    "signal": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "简洁的中文分析解释(不超过200字)",
-    "sentiment": "bullish|bearish|neutral",
-    "sentiment_score": 65,
-    "bullish_articles": 3,
-    "bearish_articles": 1,
-    "neutral_articles": 2,
-    "risk_factors": ["风险因素1", "风险因素2"],
-    "positive_catalysts": ["利好因素1", "利好因素2"],
-    "key_headlines": ["关键新闻标题1", "关键新闻标题2"],
-    "irrelevant_results": ["被判定为无关的新闻"]
-}}"""
+- HOLD: 中性或不确定，建议持有观望"""
 
 
 class NewsSentimentAgent(BaseAgent):
@@ -309,18 +276,16 @@ class NewsSentimentAgent(BaseAgent):
                 news_context=news_context,
             )
 
-            # Call LLM
+            # Call LLM with Function Call
             self._logger.debug(f"[{stock_code}] NewsSentimentAgent调用LLM分析新闻情绪...")
-            response = self._llm_client.generate(
+            result = self._llm_client.generate_with_tool(
                 prompt=prompt,
+                tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.3, "max_output_tokens": 2048},
                 system_prompt=NEWS_SENTIMENT_SYSTEM_PROMPT,
             )
 
-            # Parse JSON response
-            result = json_repair.repair_json(response, return_objects=True)
-
-            if result and isinstance(result, dict) and "signal" in result:
+            if result and "signal" in result:
                 self._logger.debug(f"[{stock_code}] LLM情绪分析成功: {result}")
                 return result
             else:

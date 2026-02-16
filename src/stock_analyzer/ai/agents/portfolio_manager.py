@@ -15,9 +15,8 @@ Replaces the previous DecisionAgent with enhanced risk management integration.
 import logging
 from typing import TYPE_CHECKING, Any
 
-import json_repair
-
 from stock_analyzer.ai.clients import get_llm_client
+from stock_analyzer.ai.tools import ANALYZE_SIGNAL_TOOL
 
 from .base import AgentSignal, BaseAgent, SignalType
 
@@ -67,16 +66,7 @@ IMPORTANT: Always respect max_position_limit from risk manager!
 - 30-49%: Conflicting signals, low confidence
 - 10-29%: No clear direction, recommend hold
 
-=== Output Format ===
-Return JSON only:
-{
-    "action": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "Concise decision rationale (max 150 chars)",
-    "position_ratio": 0.5,
-    "risk_level": "low|medium|high",
-    "key_factors": ["factor1", "factor2"]
-}"""
+Use the analyze_signal function to return your decision."""
 
 
 class PortfolioManagerAgent(BaseAgent):
@@ -221,15 +211,17 @@ class PortfolioManagerAgent(BaseAgent):
             return self._make_rule_based_decision(agent_signals, consensus_data, max_position)
 
         try:
-            response = self._llm_client.generate(
+            result = self._llm_client.generate_with_tool(
                 prompt=prompt,
+                tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.2, "max_output_tokens": 1024},
                 system_prompt=PORTFOLIO_MANAGER_SYSTEM_PROMPT,
             )
 
-            result = json_repair.repair_json(response, return_objects=True)
-
-            if result and isinstance(result, dict) and "action" in result:
+            if result and "signal" in result:
+                # Map signal to action for backward compatibility
+                action_map = {"buy": "BUY", "sell": "SELL", "hold": "HOLD"}
+                result["action"] = action_map.get(result.get("signal", "hold").lower(), "HOLD")
                 self._logger.debug(f"[{stock_code}] LLM决策成功: {result}")
                 return result
             else:
@@ -320,17 +312,7 @@ class PortfolioManagerAgent(BaseAgent):
 === 风险限制 ===
 最大仓位限制: {max_position * 100:.0f}%
 
-请综合分析所有信号，在风险限制内做出决策。
-
-请严格按照JSON格式输出：
-{{
-    "action": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "简洁的决策理由(不超过150字)",
-    "position_ratio": 0.5,
-    "risk_level": "low|medium|high",
-    "key_factors": ["关键因素1", "关键因素2"]
-}}"""
+请综合分析所有信号，在风险限制内使用 analyze_signal 函数做出决策。"""
 
     def _action_to_signal(self, action: str) -> SignalType:
         """Convert action to signal."""

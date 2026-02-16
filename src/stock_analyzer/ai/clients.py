@@ -5,6 +5,7 @@ AI客户端模块 - 基于 litellm 的统一实现
 用于股票分析等需要LLM生成的场景
 """
 
+import json
 import logging
 import os
 import time
@@ -165,6 +166,90 @@ class LiteLLMClient:
                     raise AnalysisError(f"{self.model} API 调用失败，已达最大重试次数: {error_str}") from e
 
         raise AnalysisError(f"{self.model} API 调用失败，已达最大重试次数") from None
+
+    def generate_with_tool(
+        self,
+        prompt: str,
+        tool: dict[str, Any],
+        generation_config: dict[str, Any],
+        system_prompt: str | None = None,
+    ) -> dict[str, Any] | None:
+        """
+        Generate structured output using Function Call.
+
+        Uses litellm's tool calling support to get guaranteed structured output.
+        This eliminates the need for JSON parsing and repair.
+
+        Args:
+            prompt: User prompt for the LLM
+            tool: Function tool schema dict
+            generation_config: Generation config (temperature, max_tokens)
+            system_prompt: Optional system prompt override
+
+        Returns:
+            Parsed tool call arguments as dict, or None on failure
+
+        Example:
+            >>> result = client.generate_with_tool(
+            ...     prompt="Analyze this stock...",
+            ...     tool=ANALYZE_SIGNAL_TOOL,
+            ...     generation_config={"temperature": 0.2}
+            ... )
+            >>> if result:
+            ...     signal = result.get("signal")  # "buy", "sell", or "hold"
+        """
+        if not self._available:
+            logger.warning(f"[{self.model}] Client not available, cannot use function call")
+            return None
+
+        config = get_config()
+        temperature = generation_config.get("temperature", config.ai.llm_temperature)
+        max_tokens = generation_config.get("max_output_tokens", config.ai.llm_max_tokens)
+
+        sys_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
+
+        messages = [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": prompt},
+        ]
+
+        try:
+            kwargs: dict[str, Any] = {
+                "model": self.model,
+                "messages": messages,
+                "tools": [tool],
+                "tool_choice": {"type": "function", "function": {"name": tool["function"]["name"]}},
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+
+            if self.api_key:
+                kwargs["api_key"] = self.api_key
+
+            if self.base_url:
+                kwargs["api_base"] = self.base_url
+
+            response = completion(**kwargs)
+
+            # Extract tool call arguments
+            if response and response.choices and len(response.choices) > 0:
+                choice = response.choices[0]
+                if choice.message.tool_calls and len(choice.message.tool_calls) > 0:
+                    tool_call = choice.message.tool_calls[0]
+                    arguments_str = tool_call.function.arguments
+                    result = json.loads(arguments_str)
+                    logger.debug(f"[{self.model}] Function call result: {result}")
+                    return result
+
+            logger.warning(f"[{self.model}] No tool calls in response")
+            return None
+
+        except json.JSONDecodeError as e:
+            logger.error(f"[{self.model}] Failed to parse tool call arguments: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"[{self.model}] Function call failed: {e}")
+            return None
 
 
 def get_llm_client() -> LiteLLMClient | None:

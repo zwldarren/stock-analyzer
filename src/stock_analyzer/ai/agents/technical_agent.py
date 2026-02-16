@@ -15,9 +15,8 @@ Combines algorithmic calculations with AI-driven interpretation.
 import logging
 from typing import TYPE_CHECKING, Any
 
-import json_repair
-
 from stock_analyzer.ai.clients import get_llm_client
+from stock_analyzer.ai.tools import ANALYZE_SIGNAL_TOOL
 
 from .base import AgentSignal, BaseAgent, SignalType
 
@@ -68,24 +67,7 @@ HOLD conditions:
 - Never chase high prices (不追高)
 - Buy on pullbacks to support (回踩买点)
 
-=== Output Format ===
-Return JSON only:
-{
-    "signal": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "Concise analysis (max 200 chars)",
-    "trend_assessment": "strong_bullish|bullish|neutral|bearish|strong_bearish",
-    "trend_strength": 70,
-    "key_levels": {
-        "support": 100.0,
-        "resistance": 110.0,
-        "ideal_entry": 102.0,
-        "stop_loss": 95.0
-    },
-    "technical_factors": ["factor1", "factor2"],
-    "risk_factors": ["risk1"],
-    "recommendation": "Specific trading recommendation"
-}"""
+Use the analyze_signal function to return your analysis."""
 
 
 class TechnicalAgent(BaseAgent):
@@ -264,7 +246,7 @@ class TechnicalAgent(BaseAgent):
     def _analyze_with_llm(
         self, stock_code: str, technical_data: dict[str, Any], context: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Use LLM for technical analysis."""
+        """Use LLM for technical analysis with Function Call."""
         if not self._llm_client:
             return None
 
@@ -272,15 +254,14 @@ class TechnicalAgent(BaseAgent):
             prompt = self._build_technical_prompt(stock_code, technical_data)
 
             self._logger.debug(f"[{stock_code}] TechnicalAgent调用LLM进行技术分析...")
-            response = self._llm_client.generate(
+            result = self._llm_client.generate_with_tool(
                 prompt=prompt,
+                tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.2, "max_output_tokens": 2048},
                 system_prompt=TECHNICAL_SYSTEM_PROMPT,
             )
 
-            result = json_repair.repair_json(response, return_objects=True)
-
-            if result and isinstance(result, dict) and "signal" in result:
+            if result and "signal" in result:
                 self._logger.debug(f"[{stock_code}] LLM技术分析成功: {result}")
                 return result
             else:
@@ -349,25 +330,7 @@ class TechnicalAgent(BaseAgent):
 - 支撑位: {data["support"]:.2f}
 - 阻力位: {data["resistance"]:.2f}
 
-请根据以上所有技术指标综合分析，生成交易信号。
-
-请严格按照JSON格式输出：
-{{
-    "signal": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "简洁的技术分析解释(不超过200字)",
-    "trend_assessment": "strong_bullish|bullish|neutral|bearish|strong_bearish",
-    "trend_strength": 70,
-    "key_levels": {{
-        "support": {data["support"]:.2f},
-        "resistance": {data["resistance"]:.2f},
-        "ideal_entry": {data["ma5"] * 1.02:.2f},
-        "stop_loss": {data["ma20"] * 0.97 if data["ma20"] > 0 else data["close"] * 0.95:.2f}
-    }},
-    "technical_factors": ["技术因子1", "技术因子2"],
-    "risk_factors": ["风险因素1"],
-    "recommendation": "具体的交易建议"
-}}"""
+请根据以上所有技术指标综合分析，使用 analyze_signal 函数返回交易信号。"""
 
     def _build_signal_from_llm(self, llm_analysis: dict[str, Any], technical_data: dict[str, Any]) -> AgentSignal:
         """Build AgentSignal from LLM analysis."""

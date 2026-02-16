@@ -15,9 +15,8 @@ Combines quantitative metrics with AI-driven interpretation.
 import logging
 from typing import TYPE_CHECKING, Any
 
-import json_repair
-
 from stock_analyzer.ai.clients import get_llm_client
+from stock_analyzer.ai.tools import ANALYZE_SIGNAL_TOOL
 
 from .base import AgentSignal, BaseAgent, SignalType
 
@@ -58,17 +57,7 @@ Signal Generation Rules:
 - SHORT: Extreme overvaluation, high profit ratio, clear distribution signs
 - HOLD: Mixed signals or transition phase, or low concentration, retail-dominated
 
-Output must be valid JSON:
-{
-    "signal": "buy|sell|short|cover|hold",
-    "confidence": 75,
-    "reasoning": "Detailed chip analysis explanation",
-    "control_assessment": "高度控盘|中度控盘|轻度控盘|散户主导",
-    "phase": "accumulation|consolidation|distribution|unknown",
-    "risk_level": "low|medium|high",
-    "key_factors": ["factor1", "factor2"],
-    "recommendation": "Specific trading recommendation"
-}"""
+Use the analyze_signal function to return your analysis."""
 
 
 class ChipAgent(BaseAgent):
@@ -207,7 +196,7 @@ class ChipAgent(BaseAgent):
         }
 
     def _analyze_with_llm(self, stock_code: str, chip_metrics: dict[str, Any]) -> dict[str, Any] | None:
-        """Use LLM for chip analysis."""
+        """Use LLM for chip analysis with Function Call."""
         if not self._llm_client:
             return None
 
@@ -215,15 +204,14 @@ class ChipAgent(BaseAgent):
             prompt = self._build_chip_prompt(stock_code, chip_metrics)
 
             self._logger.debug(f"[{stock_code}] ChipAgent调用LLM进行筹码分析...")
-            response = self._llm_client.generate(
+            result = self._llm_client.generate_with_tool(
                 prompt=prompt,
+                tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.2, "max_output_tokens": 2048},
                 system_prompt=CHIP_SYSTEM_PROMPT,
             )
 
-            result = json_repair.repair_json(response, return_objects=True)
-
-            if result and isinstance(result, dict) and "signal" in result:
+            if result and "signal" in result:
                 self._logger.debug(f"[{stock_code}] LLM筹码分析成功")
                 return result
             else:
@@ -257,19 +245,7 @@ class ChipAgent(BaseAgent):
 2. 筹码集中度: 越低说明筹码越集中，主力控盘度越高
 3. 股价与成本偏离: 正值越大说明股价远高于成本，回调风险越大
 
-请分析以上筹码数据，评估主力控盘程度和出货风险，生成交易信号和详细理由。
-
-请严格按照JSON格式输出：
-{{
-    "signal": "buy|sell|hold",
-    "confidence": 75,
-    "reasoning": "详细的筹码分析解释",
-    "control_assessment": "高度控盘|中度控盘|轻度控盘|散户主导",
-    "phase": "accumulation|consolidation|distribution|unknown",
-    "risk_level": "low|medium|high",
-    "key_factors": ["筹码因子1", "筹码因子2"],
-    "recommendation": "具体的交易建议"
-}}"""
+请分析以上筹码数据，评估主力控盘程度和出货风险，使用 analyze_signal 函数返回交易信号。"""
 
     def _build_signal_from_llm(self, llm_analysis: dict[str, Any], chip_metrics: dict[str, Any]) -> AgentSignal:
         """Build AgentSignal from LLM analysis."""
