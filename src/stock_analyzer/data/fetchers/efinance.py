@@ -457,7 +457,10 @@ class EfinanceFetcher(BaseFetcher):
             open_col = "开盘" if "开盘" in df.columns else "open"
             # efinance 也返回量比、市盈率、市净率、市值等字段
             vol_ratio_col = "量比" if "量比" in df.columns else "volume_ratio"
-            pe_col = "市盈率" if "市盈率" in df.columns else "pe_ratio"
+            # efinance 返回 "动态市盈率" 而不是 "市盈率"
+            pe_col = (
+                "动态市盈率" if "动态市盈率" in df.columns else ("市盈率" if "市盈率" in df.columns else "pe_ratio")
+            )
             pb_col = "市净率" if "市净率" in df.columns else "pb_ratio"
             total_mv_col = "总市值" if "总市值" in df.columns else "total_mv"
             circ_mv_col = "流通市值" if "流通市值" in df.columns else "circ_mv"

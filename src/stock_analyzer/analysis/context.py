@@ -326,9 +326,11 @@ def build_valuation_context(
     # Get industry data
     industry_name = None
     try:
-        industry_info = data_service.get_stock_industry(stock_code)
-        if industry_info and industry_info.get("industry"):
-            industry_name = industry_info["industry"]
+        # Check if get_stock_industry method exists (may not be implemented in all data services)
+        if hasattr(data_service, "get_stock_industry"):
+            industry_info = data_service.get_stock_industry(stock_code)
+            if industry_info and industry_info.get("industry"):
+                industry_name = industry_info["industry"]
     except Exception as e:
         logger.debug(f"Failed to get industry info for {stock_code}: {e}")
 
