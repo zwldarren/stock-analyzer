@@ -5,6 +5,7 @@
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from stock_analyzer.config import get_config
@@ -197,10 +198,8 @@ class NotificationService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"report_{timestamp}.md"
 
-        # 确保 reports 目录存在（使用项目根目录）
-        from stock_analyzer.config import get_project_root
-
-        reports_dir = get_project_root() / "reports"
+        # 确保 reports 目录存在（使用 base_dir 下的 reports 目录）
+        reports_dir = Path(self._settings.reports_dir)
         reports_dir.mkdir(parents=True, exist_ok=True)
 
         filepath = reports_dir / filename

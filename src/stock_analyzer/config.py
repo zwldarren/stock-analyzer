@@ -181,20 +181,11 @@ class NotificationMessageConfig(BaseSettings):
     single_stock_notify: EnvBool = Field(default=False, validation_alias="SINGLE_STOCK_NOTIFY")
 
 
-class DatabaseConfig(BaseSettings):
-    """Database configuration."""
-
-    model_config = _COMMON_CONFIG
-
-    database_path: str = Field(default="./data/stock_analysis.db", validation_alias="DATABASE_PATH")
-
-
 class LoggingConfig(BaseSettings):
     """Logging configuration."""
 
     model_config = _COMMON_CONFIG
 
-    log_dir: str = Field(default="./logs", validation_alias="LOG_DIR")
     log_level: str = Field(default="INFO", validation_alias="LOG_LEVEL")
 
     @field_validator("log_level")
@@ -258,12 +249,30 @@ class DataSourceConfig(BaseSettings):
 # ==========================================
 
 
+def _default_base_dir() -> str:
+    """Get default base directory for application data.
+
+    Priority:
+    1. BASE_DIR environment variable
+    2. ~/.stock-analyzer (user home directory)
+
+    This allows PyPI-installed usage without needing a project directory.
+    """
+    env_base = os.environ.get("BASE_DIR")
+    if env_base:
+        return env_base
+    return str(Path.home() / ".stock-analyzer")
+
+
 class Config(BaseSettings):
     """Main system configuration class.
 
     Uses pydantic-settings to automatically load configuration from environment variables.
     Supports .env files and nested configuration models.
     Each nested configuration class loads environment variables independently.
+
+    All runtime data (database, logs, reports) is stored under base_dir,
+    which defaults to ~/.stock-analyzer for PyPI-installed usage.
     """
 
     model_config = SettingsConfigDict(
@@ -274,6 +283,9 @@ class Config(BaseSettings):
         env_parse_none_str="null",
     )
 
+    # Base directory for all runtime data (data, logs, reports)
+    base_dir: str = Field(default_factory=_default_base_dir, validation_alias="BASE_DIR")
+
     # Basic configuration
     stock_list_str: str = Field(default="", validation_alias="STOCK_LIST")
 
@@ -282,7 +294,6 @@ class Config(BaseSettings):
     search: SearchConfig = Field(default_factory=SearchConfig)
     notification_channel: NotificationChannelConfig = Field(default_factory=NotificationChannelConfig)
     notification_message: NotificationMessageConfig = Field(default_factory=NotificationMessageConfig)
-    database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     system: SystemConfig = Field(default_factory=SystemConfig)
     schedule: ScheduleConfig = Field(default_factory=ScheduleConfig)
@@ -313,6 +324,34 @@ class Config(BaseSettings):
         return _parse_comma_list(self.stock_list_str)
 
     # ==========================================
+    # Derived paths from base_dir
+    # ==========================================
+
+    @computed_field
+    @property
+    def data_dir(self) -> str:
+        """Directory for database and data files."""
+        return str(Path(self.base_dir) / "data")
+
+    @computed_field
+    @property
+    def log_dir(self) -> str:
+        """Directory for log files."""
+        return str(Path(self.base_dir) / "logs")
+
+    @computed_field
+    @property
+    def reports_dir(self) -> str:
+        """Directory for report files."""
+        return str(Path(self.base_dir) / "reports")
+
+    @computed_field
+    @property
+    def database_path(self) -> str:
+        """Path to SQLite database file."""
+        return str(Path(self.base_dir) / "data" / "stock_analysis.db")
+
+    # ==========================================
     # Methods
     # ==========================================
 
@@ -321,7 +360,7 @@ class Config(BaseSettings):
 
         Creates parent directories if they don't exist.
         """
-        db_path = Path(self.database.database_path)
+        db_path = Path(self.database_path)
         db_path.parent.mkdir(parents=True, exist_ok=True)
         return f"sqlite:///{db_path.absolute()}"
 

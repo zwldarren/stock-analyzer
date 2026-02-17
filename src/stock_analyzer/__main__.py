@@ -136,7 +136,7 @@ def run_main(
             logger.debug(f"已设置 https_proxy: {config.system.https_proxy}")
 
     effective_debug = debug or config.system.debug
-    setup_logging(debug=effective_debug, log_dir=config.logging.log_dir)
+    setup_logging(debug=effective_debug, log_dir=config.log_dir)
 
     _print_banner()
 

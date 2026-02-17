@@ -7,12 +7,9 @@ services:
         env_file:
             - ../.env
         volumes:
-            # Mount data directories for persistence
-            - ../data:/app/data
-            - ../reports:/app/reports
-            - ../logs:/app/logs
-        # Run in scheduled mode by default
-        command: ["--schedule"]
-        # Or run once with specific stocks:
-        # command: ["--stocks", "600519,000001"]
+            # Mount base directory for all runtime data persistence
+            - ../stock-analyzer-data:/app/stock-analyzer-data
+        environment:
+            # Set BASE_DIR to the mounted volume path
+            - BASE_DIR=/app/stock-analyzer-data
         restart: unless-stopped
