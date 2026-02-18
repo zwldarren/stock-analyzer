@@ -159,9 +159,9 @@ class NewsSentimentAgent(BaseAgent):
             logger.debug(f"Error checking availability: {e}")
             return False
 
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute news sentiment analysis.
+        Execute news sentiment analysis (async).
 
         Args:
             context: Analysis context containing:
@@ -196,7 +196,7 @@ class NewsSentimentAgent(BaseAgent):
                 )
 
             # Use LLM to analyze sentiment
-            llm_analysis = self._analyze_sentiment_with_llm(stock_code, stock_name, news_results.results)
+            llm_analysis = await self._analyze_sentiment_with_llm(stock_code, stock_name, news_results.results)
 
             if not llm_analysis:
                 return AgentSignal(
@@ -247,11 +247,11 @@ class NewsSentimentAgent(BaseAgent):
                 metadata={"error": str(e)},
             )
 
-    def _analyze_sentiment_with_llm(
+    async def _analyze_sentiment_with_llm(
         self, stock_code: str, stock_name: str, news_items: list[Any]
     ) -> dict[str, Any] | None:
         """
-        Use LLM to analyze news sentiment and generate signal.
+        Use LLM to analyze news sentiment and generate signal (async).
 
         Args:
             stock_code: Stock code
@@ -278,7 +278,7 @@ class NewsSentimentAgent(BaseAgent):
 
             # Call LLM with Function Call
             self._logger.debug(f"[{stock_code}] NewsSentimentAgent调用LLM分析新闻情绪...")
-            result = self._llm_client.generate_with_tool(
+            result = await self._llm_client.generate_with_tool(
                 prompt=prompt,
                 tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.3, "max_output_tokens": 2048},

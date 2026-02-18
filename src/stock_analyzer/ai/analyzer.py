@@ -93,9 +93,9 @@ class AIAnalyzer(IAIAnalyzer):
         """Check if analyzer is available."""
         return self._agent_coordinator is not None
 
-    def analyze(self, context: dict[str, Any]) -> AnalysisResult:
+    async def analyze(self, context: dict[str, Any]) -> AnalysisResult:
         """
-        Analyze a single stock using multi-agent architecture.
+        Analyze a single stock using multi-agent architecture (async).
 
         Analysis flow:
         1. RiskManagerAgent calculates position limits (runs first)
@@ -135,13 +135,13 @@ class AIAnalyzer(IAIAnalyzer):
 
             # Step 1: RiskManagerAgent calculates position limits (runs first)
             display.start_agent("RiskManagerAgent")
-            risk_manager_signal = self._risk_manager_agent.analyze(context)
+            risk_manager_signal = await self._risk_manager_agent.analyze(context)
             display.complete_agent("RiskManagerAgent", "neutral", risk_manager_signal.confidence)
             max_pos = risk_manager_signal.metadata.get("max_position_size", 0.25) * 100
             logger.debug(f"[{code}] 风险管理完成: 仓位上限={max_pos:.0f}%")
 
             # Step 2: Execute multi-agent analysis (parallel)
-            agent_results = self._agent_coordinator.analyze(context)
+            agent_results = await self._agent_coordinator.analyze(context)
 
             # Step 3: Extract consensus data
             consensus = agent_results["consensus"]
@@ -177,7 +177,7 @@ class AIAnalyzer(IAIAnalyzer):
             }
 
             display.start_agent("PortfolioManagerAgent")
-            final_signal = self._portfolio_manager.analyze(decision_context)
+            final_signal = await self._portfolio_manager.analyze(decision_context)
             action = final_signal.metadata.get("action", "HOLD")
             display.complete_agent("PortfolioManagerAgent", normalize_signal(action), final_signal.confidence)
 
@@ -468,13 +468,13 @@ class AIAnalyzer(IAIAnalyzer):
         except (TypeError, ValueError):
             return "N/A"
 
-    def batch_analyze(
+    async def batch_analyze(
         self,
         contexts: list[dict[str, Any]],
         delay_between: float = 2.0,
     ) -> list[AnalysisResult]:
         """
-        Batch analyze multiple stocks.
+        Batch analyze multiple stocks (async).
 
         Args:
             contexts: Context data list
@@ -483,16 +483,16 @@ class AIAnalyzer(IAIAnalyzer):
         Returns:
             List of AnalysisResult
         """
-        import time
+        import asyncio
 
         results = []
 
         for i, context in enumerate(contexts):
             if i > 0:
                 logger.debug(f"等待 {delay_between} 秒后继续...")
-                time.sleep(delay_between)
+                await asyncio.sleep(delay_between)
 
-            result = self.analyze(context)
+            result = await self.analyze(context)
             results.append(result)
 
         return results

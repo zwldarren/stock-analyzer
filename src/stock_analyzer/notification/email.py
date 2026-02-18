@@ -61,9 +61,9 @@ class EmailChannel(NotificationChannelBase):
     def channel_type(self) -> NotificationChannel:
         return NotificationChannel.EMAIL
 
-    def send(self, content: str, **kwargs: Any) -> bool:
+    async def send(self, content: str, **kwargs: Any) -> bool:
         """
-        发送邮件
+        发送邮件（异步，在线程池中执行）
 
         Args:
             content: Markdown 格式的邮件内容
@@ -72,6 +72,8 @@ class EmailChannel(NotificationChannelBase):
         Returns:
             是否发送成功
         """
+        import asyncio
+
         if not self.sender or not self.password:
             logger.warning("邮件配置不完整，跳过推送")
             return False
@@ -82,56 +84,54 @@ class EmailChannel(NotificationChannelBase):
             subject = f"📈 股票智能分析报告 - {date_str}"
 
         try:
-            # 将 Markdown 转换为 HTML
-            html_content = self._markdown_to_html(content)
-
-            # 构建邮件
-            msg = MIMEMultipart("alternative")
-            msg["Subject"] = str(Header(subject, "utf-8"))
-            msg["From"] = formataddr((self.sender_name, self.sender))
-            msg["To"] = ", ".join(self.receivers)
-
-            # 添加纯文本和 HTML 两个版本
-            text_part = MIMEText(content, "plain", "utf-8")
-            html_part = MIMEText(html_content, "html", "utf-8")
-            msg.attach(text_part)
-            msg.attach(html_part)
-
-            # 自动识别 SMTP 配置
-            domain = self.sender.split("@")[-1].lower()
-            smtp_config = SMTP_CONFIGS.get(domain)
-
-            if smtp_config:
-                smtp_server: str = str(smtp_config["server"])
-                smtp_port: int = int(smtp_config["port"])
-                use_ssl: bool = bool(smtp_config["ssl"])
-                logger.info(f"自动识别邮箱类型: {domain} -> {smtp_server}:{smtp_port}")
-            else:
-                smtp_server = f"smtp.{domain}"
-                smtp_port = 465
-                use_ssl = True
-                logger.warning(f"未知邮箱类型 {domain}，尝试通用配置")
-
-            # 发送邮件
-            if use_ssl:
-                server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30)
-            else:
-                server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
-                server.starttls()
-
-            server.login(self.sender, self.password)
-            server.send_message(msg)
-            server.quit()
-
-            logger.info(f"邮件发送成功，收件人: {self.receivers}")
-            return True
-
-        except smtplib.SMTPAuthenticationError:
-            logger.error("邮件发送失败：认证错误，请检查邮箱和授权码")
-            return False
+            return await asyncio.to_thread(self._send_email_sync, content, subject)
         except Exception as e:
             logger.error(f"发送邮件失败: {e}")
             return False
+
+    def _send_email_sync(self, content: str, subject: str) -> bool:
+        """同步发送邮件（在线程池中执行）"""
+        assert self.sender is not None
+        assert self.password is not None
+
+        html_content = self._markdown_to_html(content)
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = str(Header(subject, "utf-8"))
+        msg["From"] = formataddr((self.sender_name, self.sender))
+        msg["To"] = ", ".join(self.receivers)
+
+        text_part = MIMEText(content, "plain", "utf-8")
+        html_part = MIMEText(html_content, "html", "utf-8")
+        msg.attach(text_part)
+        msg.attach(html_part)
+
+        domain = self.sender.split("@")[-1].lower()
+        smtp_config = SMTP_CONFIGS.get(domain)
+
+        if smtp_config:
+            smtp_server: str = str(smtp_config["server"])
+            smtp_port: int = int(smtp_config["port"])
+            use_ssl: bool = bool(smtp_config["ssl"])
+            logger.info(f"自动识别邮箱类型: {domain} -> {smtp_server}:{smtp_port}")
+        else:
+            smtp_server = f"smtp.{domain}"
+            smtp_port = 465
+            use_ssl = True
+            logger.warning(f"未知邮箱类型 {domain}，尝试通用配置")
+
+        if use_ssl:
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=30)
+        else:
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=30)
+            server.starttls()
+
+        server.login(self.sender, self.password)
+        server.send_message(msg)
+        server.quit()
+
+        logger.info(f"邮件发送成功，收件人: {self.receivers}")
+        return True
 
     def _markdown_to_html(self, markdown_text: str) -> str:
         """将 Markdown 转换为 HTML"""

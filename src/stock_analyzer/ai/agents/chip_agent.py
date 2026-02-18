@@ -100,9 +100,9 @@ class ChipAgent(BaseAgent):
         """Chip agent is available if chip data exists, with fallback."""
         return True
 
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute chip distribution analysis using LLM.
+        Execute chip distribution analysis using LLM (async).
 
         Args:
             context: Analysis context containing:
@@ -136,7 +136,7 @@ class ChipAgent(BaseAgent):
 
             # Use LLM if available for sophisticated analysis
             if self._llm_client and self._llm_client.is_available():
-                llm_analysis = self._analyze_with_llm(stock_code, chip_metrics)
+                llm_analysis = await self._analyze_with_llm(stock_code, chip_metrics)
                 if llm_analysis:
                     return self._build_signal_from_llm(llm_analysis, chip_metrics)
 
@@ -195,8 +195,8 @@ class ChipAgent(BaseAgent):
             "phase": phase,
         }
 
-    def _analyze_with_llm(self, stock_code: str, chip_metrics: dict[str, Any]) -> dict[str, Any] | None:
-        """Use LLM for chip analysis with Function Call."""
+    async def _analyze_with_llm(self, stock_code: str, chip_metrics: dict[str, Any]) -> dict[str, Any] | None:
+        """Use LLM for chip analysis with Function Call (async)."""
         if not self._llm_client:
             return None
 
@@ -204,7 +204,7 @@ class ChipAgent(BaseAgent):
             prompt = self._build_chip_prompt(stock_code, chip_metrics)
 
             self._logger.debug(f"[{stock_code}] ChipAgent调用LLM进行筹码分析...")
-            result = self._llm_client.generate_with_tool(
+            result = await self._llm_client.generate_with_tool(
                 prompt=prompt,
                 tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.2, "max_output_tokens": 2048},

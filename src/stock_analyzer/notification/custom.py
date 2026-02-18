@@ -2,12 +2,11 @@
 自定义 Webhook 通知渠道
 """
 
+import asyncio
 import logging
 from typing import Any
 
-import httpx
-
-from stock_analyzer.exceptions import NotificationError
+from stock_analyzer.infrastructure import get_aiohttp_session
 from stock_analyzer.notification.base import NotificationChannel, NotificationChannelBase
 
 logger = logging.getLogger(__name__)
@@ -34,9 +33,9 @@ class CustomWebhookChannel(NotificationChannelBase):
     def channel_type(self) -> NotificationChannel:
         return NotificationChannel.CUSTOM
 
-    def send(self, content: str, **kwargs: Any) -> bool:
+    async def send(self, content: str, **kwargs: Any) -> bool:
         """
-        发送消息到自定义 Webhook
+        发送消息到自定义 Webhook（异步）
 
         Args:
             content: Markdown 格式的消息内容
@@ -48,21 +47,18 @@ class CustomWebhookChannel(NotificationChannelBase):
             logger.warning("自定义 Webhook 未配置，跳过推送")
             return False
 
-        success_count = 0
-        total_count = len(self.webhook_urls)
+        tasks = [self._send_to_webhook(url, content) for url in self.webhook_urls]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for webhook_url in self.webhook_urls:
-            try:
-                if self._send_to_webhook(webhook_url, content):
-                    success_count += 1
-            except NotificationError as e:
-                logger.error(f"发送到自定义 Webhook 失败 ({webhook_url}): {e}")
+        success_count = sum(1 for r in results if r is True)
+        total_count = len(self.webhook_urls)
 
         logger.info(f"自定义 Webhook 发送完成: {success_count}/{total_count} 成功")
         return success_count > 0
 
-    def _send_to_webhook(self, webhook_url: str, content: str) -> bool:
-        """发送到单个 Webhook"""
+    async def _send_to_webhook(self, webhook_url: str, content: str) -> bool:
+        """发送到单个 Webhook（异步）"""
+        session = get_aiohttp_session()
         headers = {"Content-Type": "application/json"}
 
         if self.bearer_token:
@@ -73,15 +69,10 @@ class CustomWebhookChannel(NotificationChannelBase):
             "format": "markdown",
         }
 
-        response = httpx.post(
-            webhook_url,
-            json=payload,
-            headers=headers,
-            timeout=30,
-        )
-
-        if response.status_code in (200, 201, 204):
-            return True
-        else:
-            logger.error(f"自定义 Webhook 请求失败: HTTP {response.status_code}, {response.text}")
-            return False
+        async with session.post(webhook_url, json=payload, headers=headers) as response:
+            if response.status in (200, 201, 204):
+                return True
+            else:
+                text = await response.text()
+                logger.error(f"自定义 Webhook 请求失败: HTTP {response.status}, {text}")
+                return False

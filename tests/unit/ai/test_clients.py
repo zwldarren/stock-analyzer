@@ -1,13 +1,16 @@
 """Tests for LiteLLMClient."""
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 
 class TestLiteLLMClientGenerateWithTool:
     """Tests for generate_with_tool method."""
 
-    def test_generate_with_tool_returns_parsed_arguments(self):
+    @pytest.mark.asyncio
+    async def test_generate_with_tool_returns_parsed_arguments(self):
         """Test that generate_with_tool extracts and parses tool call arguments."""
         from stock_analyzer.ai.clients import LiteLLMClient
 
@@ -32,8 +35,8 @@ class TestLiteLLMClientGenerateWithTool:
         mock_response.choices[0].message.tool_calls = [MagicMock()]
         mock_response.choices[0].message.tool_calls[0].function.arguments = json.dumps({"result": "success"})
 
-        with patch("stock_analyzer.ai.clients.completion", return_value=mock_response):
-            result = client.generate_with_tool(
+        with patch("stock_analyzer.ai.clients.acompletion", new_callable=AsyncMock, return_value=mock_response):
+            result = await client.generate_with_tool(
                 prompt="test prompt",
                 tool=tool,
                 generation_config={"temperature": 0.2},
@@ -41,7 +44,8 @@ class TestLiteLLMClientGenerateWithTool:
 
         assert result == {"result": "success"}
 
-    def test_generate_with_tool_returns_none_on_no_tool_calls(self):
+    @pytest.mark.asyncio
+    async def test_generate_with_tool_returns_none_on_no_tool_calls(self):
         """Test that generate_with_tool returns None when no tool calls."""
         from stock_analyzer.ai.clients import LiteLLMClient
 
@@ -62,8 +66,8 @@ class TestLiteLLMClientGenerateWithTool:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.tool_calls = None
 
-        with patch("stock_analyzer.ai.clients.completion", return_value=mock_response):
-            result = client.generate_with_tool(
+        with patch("stock_analyzer.ai.clients.acompletion", new_callable=AsyncMock, return_value=mock_response):
+            result = await client.generate_with_tool(
                 prompt="test prompt",
                 tool=tool,
                 generation_config={"temperature": 0.2},
@@ -71,16 +75,17 @@ class TestLiteLLMClientGenerateWithTool:
 
         assert result is None
 
-    def test_generate_with_tool_returns_none_when_unavailable(self):
+    @pytest.mark.asyncio
+    async def test_generate_with_tool_returns_none_when_unavailable(self):
         """Test that generate_with_tool returns None when client is unavailable."""
         from stock_analyzer.ai.clients import LiteLLMClient
 
         client = LiteLLMClient(
             model="openai/gpt-4",
-            api_key=None,  # No API key = unavailable
+            api_key=None,
         )
 
-        result = client.generate_with_tool(
+        result = await client.generate_with_tool(
             prompt="test prompt",
             tool={},
             generation_config={},

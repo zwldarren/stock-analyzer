@@ -20,9 +20,9 @@ class IAIAnalyzer(ABC):
     """
 
     @abstractmethod
-    def analyze(self, context: dict[str, Any]) -> AnalysisResult:
+    async def analyze(self, context: dict[str, Any]) -> AnalysisResult:
         """
-        Analyze a single stock.
+        Analyze a single stock (async).
 
         Args:
             context: Stock analysis context data (technical, fundamental, etc.)
@@ -41,9 +41,9 @@ class IAIAnalyzer(ABC):
         """
 
     @abstractmethod
-    def batch_analyze(self, contexts: list[dict[str, Any]], delay_between: float = 2.0) -> list[AnalysisResult]:
+    async def batch_analyze(self, contexts: list[dict[str, Any]], delay_between: float = 2.0) -> list[AnalysisResult]:
         """
-        Batch analyze multiple stocks.
+        Batch analyze multiple stocks (async).
 
         Args:
             contexts: List of context data

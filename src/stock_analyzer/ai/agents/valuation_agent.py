@@ -60,9 +60,9 @@ class ValuationAgent(BaseAgent):
         return True
 
     @handle_errors("估值分析失败", default_return=None)
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute valuation analysis using ONLY actual data.
+        Execute valuation analysis using ONLY actual data (async).
 
         Args:
             context: Analysis context containing:

@@ -62,9 +62,9 @@ class NotificationChannelBase(ABC):
         """检查渠道是否可用（配置完整）"""
 
     @abstractmethod
-    def send(self, content: str, **kwargs: Any) -> bool:
+    async def send(self, content: str, **kwargs: Any) -> bool:
         """
-        发送消息
+        发送消息（异步）
 
         Args:
             content: 消息内容

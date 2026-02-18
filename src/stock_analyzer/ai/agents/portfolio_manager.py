@@ -108,9 +108,9 @@ class PortfolioManagerAgent(BaseAgent):
         """Always available with fallback."""
         return True
 
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Make final trading decision based on all inputs.
+        Make final trading decision based on all inputs (async).
 
         Args:
             context: Analysis context containing:
@@ -147,7 +147,9 @@ class PortfolioManagerAgent(BaseAgent):
 
             # Use LLM if available
             if self._llm_client and self._llm_client.is_available():
-                decision = self._make_llm_decision(stock_code, stock_name, agent_signals, consensus_data, max_position)
+                decision = await self._make_llm_decision(
+                    stock_code, stock_name, agent_signals, consensus_data, max_position
+                )
             else:
                 decision = self._make_rule_based_decision(agent_signals, consensus_data, max_position)
 
@@ -194,7 +196,7 @@ class PortfolioManagerAgent(BaseAgent):
         metadata = risk_manager_signal.get("metadata", {})
         return metadata.get("max_position_size", 0.25)
 
-    def _make_llm_decision(
+    async def _make_llm_decision(
         self,
         stock_code: str,
         stock_name: str,
@@ -202,7 +204,7 @@ class PortfolioManagerAgent(BaseAgent):
         consensus_data: dict[str, Any],
         max_position: float,
     ) -> dict[str, Any]:
-        """Use LLM to make final decision."""
+        """Use LLM to make final decision (async)."""
         prompt = self._build_decision_prompt(stock_code, stock_name, agent_signals, consensus_data, max_position)
 
         self._logger.debug(f"[{stock_code}] PortfolioManager调用LLM进行决策...")
@@ -211,7 +213,7 @@ class PortfolioManagerAgent(BaseAgent):
             return self._make_rule_based_decision(agent_signals, consensus_data, max_position)
 
         try:
-            result = self._llm_client.generate_with_tool(
+            result = await self._llm_client.generate_with_tool(
                 prompt=prompt,
                 tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.2, "max_output_tokens": 1024},

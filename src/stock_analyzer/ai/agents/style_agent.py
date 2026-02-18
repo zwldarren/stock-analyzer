@@ -92,9 +92,9 @@ class StyleAgent(BaseAgent):
         return True
 
     @handle_errors("投资风格分析失败", default_return=None)
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute unified investment style analysis.
+        Execute unified investment style analysis (async).
 
         Args:
             context: Analysis context containing:

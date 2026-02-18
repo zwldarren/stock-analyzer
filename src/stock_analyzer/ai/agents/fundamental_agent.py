@@ -57,9 +57,9 @@ class FundamentalAgent(BaseAgent):
         return True
 
     @handle_errors("基本面分析失败", default_return=None)
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute fundamental analysis.
+        Execute fundamental analysis (async).
 
         Args:
             context: Analysis context containing:

@@ -12,10 +12,10 @@ from functools import cache
 from typing import TYPE_CHECKING, Any
 
 from stock_analyzer.config import get_config
+from stock_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
 from stock_analyzer.search.base import register_builtin_providers
 from stock_analyzer.storage import DatabaseManager
 
-# Initialize search providers at module load time
 register_builtin_providers()
 
 if TYPE_CHECKING:
@@ -23,6 +23,14 @@ if TYPE_CHECKING:
     from stock_analyzer.data.manager import DataManager
     from stock_analyzer.notification.service import NotificationService
     from stock_analyzer.search.service import SearchService
+
+
+_akshare_limiter = AsyncRateLimiter(rate=2.0, burst=3)
+_tushare_limiter = AsyncRateLimiter(rate=0.5, burst=1)
+_efinance_limiter = AsyncRateLimiter(rate=5.0, burst=10)
+_baostock_limiter = AsyncRateLimiter(rate=1.0, burst=2)
+_yfinance_limiter = AsyncRateLimiter(rate=1.0, burst=2)
+_pytdx_limiter = AsyncRateLimiter(rate=5.0, burst=10)
 
 
 @cache
@@ -50,7 +58,15 @@ def get_data_manager() -> DataManager:
     from stock_analyzer.data import DataManager
 
     config = get_config()
-    return DataManager(config=config, storage=get_db())
+    rate_limiters = {
+        "akshare": _akshare_limiter,
+        "tushare": _tushare_limiter,
+        "efinance": _efinance_limiter,
+        "baostock": _baostock_limiter,
+        "yfinance": _yfinance_limiter,
+        "pytdx": _pytdx_limiter,
+    }
+    return DataManager(config=config, storage=get_db(), rate_limiters=rate_limiters)
 
 
 @cache
@@ -91,7 +107,6 @@ def get_search_service() -> SearchService:
         searxng_username=config.search.searxng_username,
         searxng_password=config.search.searxng_password,
     )
-    # Inject database for caching
     service.set_db(get_db())
     return service
 

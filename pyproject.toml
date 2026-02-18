@@ -5,6 +5,7 @@ description = "AI-powered A-share stock analysis system with multi-agent archite
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "aiohttp>=3.9.0",
     "akshare>=1.18.21",
     "baostock>=0.8.9",
     "cachetools>=7.0.0",
@@ -71,6 +72,8 @@ select = [
 [tool.pytest.ini_options]
 addopts = "--tb=short --cov=stock_analyzer --cov-report=term-missing"
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "live: marks tests that call real data provider APIs (may consume quota)",
     "slow: tests that are slow to run",

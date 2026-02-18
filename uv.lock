@@ -2209,6 +2209,7 @@ name = "stock-analyzer"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "akshare" },
     { name = "baostock" },
     { name = "cachetools" },
@@ -2248,6 +2249,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiohttp", specifier = ">=3.9.0" },
     { name = "akshare", specifier = ">=1.18.21" },
     { name = "baostock", specifier = ">=0.8.9" },
     { name = "cachetools", specifier = ">=7.0.0" },

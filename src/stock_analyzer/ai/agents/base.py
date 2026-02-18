@@ -25,7 +25,7 @@ class BaseAgent(ABC):
             def __init__(self):
                 super().__init__("MyAgent")
 
-            def analyze(self, context: dict[str, Any]) -> AgentSignal:
+            async def analyze(self, context: dict[str, Any]) -> AgentSignal:
                 # Analysis logic here
                 return AgentSignal(
                     agent_name=self.name,
@@ -45,9 +45,9 @@ class BaseAgent(ABC):
         self.name = name
 
     @abstractmethod
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute analysis and return a trading signal.
+        Execute analysis and return a trading signal (async).
 
         Args:
             context: Complete analysis context containing:

@@ -4,6 +4,7 @@
 提供统一的接口来管理所有通知渠道
 """
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -47,10 +48,8 @@ class NotificationService:
         self._context = context
         self._channels: dict[NotificationChannel, Any] = {}
 
-        # 初始化各渠道
         self._init_channels()
 
-        # 检测可用渠道
         self._available_channels = self._detect_available_channels()
 
         if not self._available_channels:
@@ -64,7 +63,6 @@ class NotificationService:
         settings = self._settings
         nc = settings.notification_channel
 
-        # Telegram
         if nc.telegram_bot_token and nc.telegram_chat_id:
             self._channels[NotificationChannel.TELEGRAM] = TelegramChannel(
                 {
@@ -74,7 +72,6 @@ class NotificationService:
                 }
             )
 
-        # 邮件
         if nc.email_sender and nc.email_password:
             receivers = nc.email_receivers or []
             if not receivers:
@@ -88,7 +85,6 @@ class NotificationService:
                 }
             )
 
-        # Discord Webhook
         if nc.discord_webhook_url:
             try:
                 from .discord import DiscordChannel
@@ -97,7 +93,6 @@ class NotificationService:
             except ImportError:
                 logger.warning("Discord channel not available - requires additional dependencies")
 
-        # 自定义 Webhook
         if nc.custom_webhook_urls:
             try:
                 from .custom import CustomWebhookChannel
@@ -134,7 +129,6 @@ class NotificationService:
 
     def generate_daily_report(self, results: list[AnalysisResult], report_date: str | None = None) -> str:
         """生成日报"""
-        # Use dashboard report as the daily report format
         return ReportGenerator.generate_dashboard_report(results, report_date)
 
     def generate_dashboard_report(self, results: list[AnalysisResult], report_date: str | None = None) -> str:
@@ -145,9 +139,9 @@ class NotificationService:
         """生成单股报告"""
         return ReportGenerator.generate_single_stock_report(result)
 
-    def send(self, content: str, **kwargs: Any) -> bool:
+    async def send(self, content: str, **kwargs: Any) -> bool:
         """
-        统一发送接口 - 向所有已配置的渠道发送
+        统一发送接口 - 向所有已配置的渠道发送（异步并行）
 
         Args:
             content: 消息内容（Markdown 格式）
@@ -162,24 +156,33 @@ class NotificationService:
 
         logger.info(f"正在向 {len(self._available_channels)} 个渠道发送通知：{self.get_channel_names()}")
 
-        success_count = 0
-        fail_count = 0
-
+        tasks = []
         for channel_type in self._available_channels:
             channel = self._channels[channel_type]
-            channel_name = ChannelDetector.get_channel_name(channel_type)
+            tasks.append(self._send_to_channel_safe(channel, channel_type, content, **kwargs))
 
-            try:
-                if channel.send(content, **kwargs):
-                    success_count += 1
-                else:
-                    fail_count += 1
-            except NotificationError as e:
-                logger.error(f"{channel_name} 发送失败: {e}")
-                fail_count += 1
+        results = await asyncio.gather(*tasks)
+
+        success_count = sum(1 for r in results if r is True)
+        fail_count = len(results) - success_count
 
         logger.info(f"通知发送完成：成功 {success_count} 个，失败 {fail_count} 个")
         return success_count > 0
+
+    async def _send_to_channel_safe(
+        self, channel: Any, channel_type: NotificationChannel, content: str, **kwargs: Any
+    ) -> bool:
+        """安全发送到单个渠道"""
+        channel_name = ChannelDetector.get_channel_name(channel_type)
+        try:
+            result = await channel.send(content, **kwargs)
+            return result
+        except NotificationError as e:
+            logger.error(f"{channel_name} 发送失败: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"{channel_name} 发送异常: {e}")
+            return False
 
     def save_report_to_file(self, content: str, filename: str | None = None) -> str:
         """
@@ -198,7 +201,6 @@ class NotificationService:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"report_{timestamp}.md"
 
-        # 确保 reports 目录存在（使用 base_dir 下的 reports 目录）
         reports_dir = Path(self._settings.reports_dir)
         reports_dir.mkdir(parents=True, exist_ok=True)
 
@@ -210,8 +212,8 @@ class NotificationService:
         logger.info(f"日报已保存到: {filepath}")
         return str(filepath)
 
-    def send_to_context(self, content: str) -> bool:
-        """发送报告到上下文（用于机器人回复）
+    async def send_to_context(self, content: str) -> bool:
+        """发送报告到上下文（用于机器人回复，异步）
 
         根据MessageContext中的平台信息，将消息发送到对应的渠道。
         如果context未设置或平台不支持，则返回False。
@@ -228,7 +230,6 @@ class NotificationService:
 
         platform = self._context.platform.lower()
 
-        # Map platform names to notification channels
         platform_channel_map = {
             "telegram": NotificationChannel.TELEGRAM,
             "email": NotificationChannel.EMAIL,
@@ -247,23 +248,22 @@ class NotificationService:
 
         try:
             logger.info(f"正在发送上下文回复到 {platform}")
-            return self._send_to_channel(channel, content)
+            return await self._send_to_channel(channel, content)
         except NotificationError as e:
             logger.error(f"发送上下文回复到 {platform} 失败: {e}")
             return False
 
-    def _send_to_channel(self, channel: NotificationChannel, content: str) -> bool:
-        """发送到指定渠道"""
+    async def _send_to_channel(self, channel: NotificationChannel, content: str) -> bool:
+        """发送到指定渠道（异步）"""
         if channel not in self._channels:
             return False
         try:
-            return self._channels[channel].send(content)
+            return await self._channels[channel].send(content)
         except NotificationError as e:
             logger.error(f"发送到 {channel} 失败: {e}")
             return False
 
 
-# 便捷函数
 def get_notification_service(context: MessageContext | None = None) -> NotificationService:
     """获取通知服务实例
 
@@ -276,19 +276,16 @@ def get_notification_service(context: MessageContext | None = None) -> Notificat
     return NotificationService(context=context)
 
 
-def send_daily_report(results: list[AnalysisResult]) -> bool:
+async def send_daily_report(results: list[AnalysisResult]) -> bool:
     """
-    发送每日报告的快捷方式
+    发送每日报告的快捷方式（异步）
 
     自动识别渠道并推送
     """
     service = get_notification_service()
 
-    # 生成报告
     report = service.generate_dashboard_report(results)
 
-    # 保存到本地
     service.save_report_to_file(report)
 
-    # 推送到配置的渠道
-    return service.send(report)
+    return await service.send(report)

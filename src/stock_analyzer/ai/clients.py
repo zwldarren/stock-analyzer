@@ -1,23 +1,18 @@
 """
-AI客户端模块 - 基于 litellm 的统一实现
+AI客户端模块 - 基于 litellm 的统一实现 (async)
 
 使用 litellm 支持 100+ LLM providers，统一接口格式
 用于股票分析等需要LLM生成的场景
 """
 
 import asyncio
-import atexit
-import contextlib
-import inspect
 import json
 import logging
 import os
-import time
 from typing import Any
 
 import litellm
-import urllib3
-from litellm import completion
+from litellm import acompletion
 
 from stock_analyzer.config import get_config
 from stock_analyzer.exceptions import AnalysisError
@@ -30,92 +25,6 @@ litellm.set_verbose = False
 litellm.drop_params = True
 
 
-def _cleanup_http_connections() -> None:
-    try:
-        urllib3.disable_warnings()
-        shutdown_llm_http_clients()
-    except Exception:
-        pass
-
-
-atexit.register(_cleanup_http_connections)
-
-
-def _collect_close_awaitables(resource: Any, awaitables: list[Any]) -> None:
-    if resource is None:
-        return
-
-    for method_name in ("aclose", "close"):
-        close_fn = getattr(resource, method_name, None)
-        if callable(close_fn):
-            with contextlib.suppress(Exception):
-                result = close_fn()
-                if inspect.isawaitable(result):
-                    awaitables.append(result)
-            break
-
-
-def _close_sync_resource(resource: Any) -> None:
-    close_fn = getattr(resource, "close", None)
-    if callable(close_fn):
-        with contextlib.suppress(Exception):
-            result = close_fn()
-            if inspect.isawaitable(result):
-                return
-
-
-def _close_cached_sync_clients(awaitables: list[Any]) -> None:
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
-    cache_dict = getattr(cache, "cache_dict", {}) if cache is not None else {}
-
-    if isinstance(cache_dict, dict):
-        for client in cache_dict.values():
-            _collect_close_awaitables(client, awaitables)
-            _collect_close_awaitables(getattr(client, "_client", None), awaitables)
-            _collect_close_awaitables(getattr(client, "client", None), awaitables)
-
-
-async def _close_cached_async_clients(awaitables: list[Any]) -> None:
-    if awaitables:
-        with contextlib.suppress(Exception):
-            await asyncio.gather(*awaitables, return_exceptions=True)
-
-    close_async = getattr(litellm, "close_litellm_async_clients", None)
-    if callable(close_async):
-        with contextlib.suppress(Exception):
-            await close_async()
-
-
-def _run_async_cleanup(coro: Any) -> None:
-    try:
-        try:
-            running_loop = asyncio.get_running_loop()
-        except RuntimeError:
-            running_loop = None
-
-        if running_loop and running_loop.is_running():
-            return
-
-        loop = asyncio.new_event_loop()
-        try:
-            loop.run_until_complete(coro)
-        finally:
-            loop.close()
-    except Exception:
-        pass
-
-
-def shutdown_llm_http_clients() -> None:
-    """Shutdown cached LiteLLM/OpenAI HTTP clients to avoid socket ResourceWarning on exit."""
-    pending_awaitables: list[Any] = []
-
-    _collect_close_awaitables(getattr(litellm, "client_session", None), pending_awaitables)
-    _collect_close_awaitables(getattr(litellm, "aclient_session", None), pending_awaitables)
-    _close_cached_sync_clients(pending_awaitables)
-    _run_async_cleanup(_close_cached_async_clients(pending_awaitables))
-
-
-# Default system prompt for stock analysis
 DEFAULT_SYSTEM_PROMPT = """你是一位专业的A股投资分析师，擅长市场分析和投资研究。
 请基于提供的数据生成专业、客观的分析报告。
 注意：
@@ -127,11 +36,11 @@ DEFAULT_SYSTEM_PROMPT = """你是一位专业的A股投资分析师，擅长市�
 
 class LiteLLMClient:
     """
-    基于 litellm 的统一 LLM 客户端
+    基于 litellm 的统一 LLM 客户端 (async)
 
     使用方式：
         client = LiteLLMClient("deepseek/deepseek-reasoner", api_key="sk-...")
-        response = client.generate("分析这只股票", {"temperature": 0.7})
+        response = await client.generate("分析这只股票", {"temperature": 0.7})
     """
 
     def __init__(
@@ -140,26 +49,15 @@ class LiteLLMClient:
         api_key: str | None,
         base_url: str | None = None,
     ):
-        """
-        初始化 LiteLLM 客户端
-
-        Args:
-            model: 模型名称（litellm 格式：provider/model-name）
-            api_key: API Key
-            base_url: 自定义 base URL（可选，用于自托管或代理）
-        """
         self.model = model
         self.api_key = api_key
         self.base_url = base_url
-
-        # 验证配置有效性
         self._available = self._validate_config()
 
         if not self._available:
             logger.warning(f"LiteLLM 客户端初始化失败 (模型: {model}) - 配置无效")
 
     def _validate_config(self) -> bool:
-        """验证配置是否有效"""
         if not self.api_key:
             return False
         if not self.model or "/" not in self.model:
@@ -168,12 +66,11 @@ class LiteLLMClient:
         return True
 
     def is_available(self) -> bool:
-        """检查客户端是否可用"""
         return self._available
 
-    def generate(self, prompt: str, generation_config: dict, system_prompt: str | None = None) -> str:
+    async def generate(self, prompt: str, generation_config: dict, system_prompt: str | None = None) -> str:
         """
-        生成内容，带重试机制
+        生成内容，带重试机制 (async)
 
         Args:
             prompt: 用户提示词
@@ -193,11 +90,9 @@ class LiteLLMClient:
         max_retries = config.ai.llm_max_retries
         base_delay = config.ai.llm_retry_delay
 
-        # 构建请求参数
         temperature = generation_config.get("temperature", config.ai.llm_temperature)
         max_tokens = generation_config.get("max_output_tokens", config.ai.llm_max_tokens)
 
-        # Use provided system prompt or default
         sys_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
 
         messages = [
@@ -210,9 +105,8 @@ class LiteLLMClient:
                 if attempt > 0:
                     delay = calculate_backoff_delay(attempt, base_delay, max_delay=60.0)
                     logger.info(f"[{self.model}] 第 {attempt + 1} 次重试，等待 {delay:.1f} 秒...")
-                    time.sleep(delay)
+                    await asyncio.sleep(delay)
 
-                # 构建 litellm 调用参数
                 kwargs: dict[str, Any] = {
                     "model": self.model,
                     "messages": messages,
@@ -220,17 +114,14 @@ class LiteLLMClient:
                     "max_tokens": max_tokens,
                 }
 
-                # 添加 API key（如果提供）
                 if self.api_key:
                     kwargs["api_key"] = self.api_key
 
-                # 添加自定义 base_url（如果提供）
                 if self.base_url:
                     kwargs["api_base"] = self.base_url
 
-                response = completion(**kwargs)
+                response = await acompletion(**kwargs)
 
-                # 提取生成的内容
                 if response and response.choices and len(response.choices) > 0:
                     content = response.choices[0].message.content
                     if content:
@@ -255,7 +146,7 @@ class LiteLLMClient:
 
         raise AnalysisError(f"{self.model} API 调用失败，已达最大重试次数") from None
 
-    def generate_with_tool(
+    async def generate_with_tool(
         self,
         prompt: str,
         tool: dict[str, Any],
@@ -263,7 +154,7 @@ class LiteLLMClient:
         system_prompt: str | None = None,
     ) -> dict[str, Any] | None:
         """
-        Generate structured output using Function Call.
+        Generate structured output using Function Call (async).
 
         Uses litellm's tool calling support to get guaranteed structured output.
         This eliminates the need for JSON parsing and repair.
@@ -276,15 +167,6 @@ class LiteLLMClient:
 
         Returns:
             Parsed tool call arguments as dict, or None on failure
-
-        Example:
-            >>> result = client.generate_with_tool(
-            ...     prompt="Analyze this stock...",
-            ...     tool=ANALYZE_SIGNAL_TOOL,
-            ...     generation_config={"temperature": 0.2}
-            ... )
-            >>> if result:
-            ...     signal = result.get("signal")  # "buy", "sell", or "hold"
         """
         if not self._available:
             logger.warning(f"[{self.model}] Client not available, cannot use function call")
@@ -317,9 +199,8 @@ class LiteLLMClient:
             if self.base_url:
                 kwargs["api_base"] = self.base_url
 
-            response = completion(**kwargs)
+            response = await acompletion(**kwargs)
 
-            # Extract tool call arguments
             if response and response.choices and len(response.choices) > 0:
                 choice = response.choices[0]
                 if choice.message.tool_calls and len(choice.message.tool_calls) > 0:

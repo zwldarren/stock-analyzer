@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _backfill_valuation_multiples(
+async def _backfill_valuation_multiples(
     valuation_data: dict[str, Any],
     realtime_quote: "UnifiedRealtimeQuote | None",
     data_service: Any,
@@ -44,7 +44,7 @@ def _backfill_valuation_multiples(
             continue
 
         try:
-            alt_quote = data_service._try_realtime_by_source(stock_code, source)
+            alt_quote = await data_service._try_realtime_by_source(stock_code, source)
         except Exception as e:
             logger.debug(f"[{stock_code}] 估值字段补齐失败({source}): {e}")
             continue
@@ -356,7 +356,7 @@ def build_technical_indicators(daily_data: pd.DataFrame | None) -> dict[str, Any
     return technical_data
 
 
-def build_valuation_context(
+async def build_valuation_context(
     realtime_quote: "UnifiedRealtimeQuote | None",
     daily_data: pd.DataFrame | None,
     current_price: float,
@@ -374,7 +374,7 @@ def build_valuation_context(
         if pb is not None and pb > 0:
             valuation_data["pb_ratio"] = float(pb)
 
-    _backfill_valuation_multiples(valuation_data, realtime_quote, data_service, stock_code)
+    await _backfill_valuation_multiples(valuation_data, realtime_quote, data_service, stock_code)
 
     # Get industry data
     industry_name = None

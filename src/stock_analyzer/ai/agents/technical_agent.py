@@ -105,9 +105,9 @@ class TechnicalAgent(BaseAgent):
         """Technical agent is always available with fallback."""
         return True
 
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Execute technical analysis using LLM.
+        Execute technical analysis using LLM (async).
 
         Args:
             context: Analysis context containing:
@@ -143,7 +143,7 @@ class TechnicalAgent(BaseAgent):
 
             # Use LLM if available for sophisticated analysis
             if self._llm_client and self._llm_client.is_available():
-                llm_analysis = self._analyze_with_llm(stock_code, technical_data, context)
+                llm_analysis = await self._analyze_with_llm(stock_code, technical_data, context)
                 if llm_analysis:
                     return self._build_signal_from_llm(llm_analysis, technical_data)
 
@@ -243,10 +243,10 @@ class TechnicalAgent(BaseAgent):
 
         return technical_data
 
-    def _analyze_with_llm(
+    async def _analyze_with_llm(
         self, stock_code: str, technical_data: dict[str, Any], context: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Use LLM for technical analysis with Function Call."""
+        """Use LLM for technical analysis with Function Call (async)."""
         if not self._llm_client:
             return None
 
@@ -254,7 +254,7 @@ class TechnicalAgent(BaseAgent):
             prompt = self._build_technical_prompt(stock_code, technical_data)
 
             self._logger.debug(f"[{stock_code}] TechnicalAgent调用LLM进行技术分析...")
-            result = self._llm_client.generate_with_tool(
+            result = await self._llm_client.generate_with_tool(
                 prompt=prompt,
                 tool=ANALYZE_SIGNAL_TOOL,
                 generation_config={"temperature": 0.2, "max_output_tokens": 2048},

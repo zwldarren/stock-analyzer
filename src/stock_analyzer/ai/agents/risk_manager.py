@@ -63,9 +63,9 @@ class RiskManagerAgent(BaseAgent):
         return True
 
     @handle_errors("风险管理计算失败", default_return=None)
-    def analyze(self, context: dict[str, Any]) -> AgentSignal:
+    async def analyze(self, context: dict[str, Any]) -> AgentSignal:
         """
-        Calculate risk constraints and position limits.
+        Calculate risk constraints and position limits (async).
 
         Args:
             context: Analysis context containing:

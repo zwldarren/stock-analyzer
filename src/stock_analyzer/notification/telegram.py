@@ -6,8 +6,7 @@ import logging
 import re
 from typing import Any
 
-import httpx
-
+from stock_analyzer.infrastructure import get_aiohttp_session
 from stock_analyzer.notification.base import NotificationChannel, NotificationChannelBase
 
 logger = logging.getLogger(__name__)
@@ -36,9 +35,9 @@ class TelegramChannel(NotificationChannelBase):
     def channel_type(self) -> NotificationChannel:
         return NotificationChannel.TELEGRAM
 
-    def send(self, content: str, **kwargs: Any) -> bool:
+    async def send(self, content: str, **kwargs: Any) -> bool:
         """
-        发送消息到 Telegram
+        发送消息到 Telegram（异步）
 
         Args:
             content: Markdown 格式的消息内容
@@ -55,16 +54,17 @@ class TelegramChannel(NotificationChannelBase):
             max_length = 4096
 
             if len(content) <= max_length:
-                return self._send_message(api_url, content)
+                return await self._send_message(api_url, content)
             else:
-                return self._send_chunked(api_url, content, max_length)
+                return await self._send_chunked(api_url, content, max_length)
 
         except Exception as e:
             logger.error(f"发送 Telegram 消息失败: {e}")
             return False
 
-    def _send_message(self, api_url: str, text: str) -> bool:
-        """发送单条消息"""
+    async def _send_message(self, api_url: str, text: str) -> bool:
+        """发送单条消息（异步）"""
+        session = get_aiohttp_session()
         telegram_text = self._convert_to_telegram_markdown(text)
 
         payload = {
@@ -77,35 +77,34 @@ class TelegramChannel(NotificationChannelBase):
         if self.message_thread_id:
             payload["message_thread_id"] = self.message_thread_id
 
-        response = httpx.post(api_url, json=payload, timeout=10)
+        async with session.post(api_url, json=payload) as response:
+            if response.status == 200:
+                result = await response.json()
+                if result.get("ok"):
+                    logger.info("Telegram 消息发送成功")
+                    return True
+                else:
+                    error_desc = result.get("description", "未知错误")
+                    logger.error(f"Telegram 返回错误: {error_desc}")
 
-        if response.status_code == 200:
-            result = response.json()
-            if result.get("ok"):
-                logger.info("Telegram 消息发送成功")
-                return True
+                    if "parse" in error_desc.lower() or "markdown" in error_desc.lower():
+                        logger.info("尝试使用纯文本格式重新发送...")
+                        payload["text"] = text
+                        payload.pop("parse_mode", None)
+
+                        async with session.post(api_url, json=payload) as retry_response:
+                            if retry_response.status == 200:
+                                retry_result = await retry_response.json()
+                                if retry_result.get("ok"):
+                                    logger.info("Telegram 消息发送成功（纯文本）")
+                                    return True
+                    return False
             else:
-                error_desc = result.get("description", "未知错误")
-                logger.error(f"Telegram 返回错误: {error_desc}")
-
-                # 如果 Markdown 解析失败，尝试纯文本发送
-                if "parse" in error_desc.lower() or "markdown" in error_desc.lower():
-                    logger.info("尝试使用纯文本格式重新发送...")
-                    payload["text"] = text
-                    payload.pop("parse_mode", None)
-
-                    response = httpx.post(api_url, json=payload, timeout=10)
-                    if response.status_code == 200 and response.json().get("ok"):
-                        logger.info("Telegram 消息发送成功（纯文本）")
-                        return True
-
+                logger.error(f"Telegram 请求失败: HTTP {response.status}")
                 return False
-        else:
-            logger.error(f"Telegram 请求失败: HTTP {response.status_code}")
-            return False
 
-    def _send_chunked(self, api_url: str, content: str, max_length: int) -> bool:
-        """分段发送长消息"""
+    async def _send_chunked(self, api_url: str, content: str, max_length: int) -> bool:
+        """分段发送长消息（异步）"""
         sections = content.split("\n---\n")
 
         current_chunk = []
@@ -120,7 +119,7 @@ class TelegramChannel(NotificationChannelBase):
                 if current_chunk:
                     chunk_content = "\n---\n".join(current_chunk)
                     logger.info(f"发送 Telegram 消息块 {chunk_index}...")
-                    if not self._send_message(api_url, chunk_content):
+                    if not await self._send_message(api_url, chunk_content):
                         all_success = False
                     chunk_index += 1
 
@@ -130,11 +129,10 @@ class TelegramChannel(NotificationChannelBase):
                 current_chunk.append(section)
                 current_length += section_length
 
-        # 发送最后一块
         if current_chunk:
             chunk_content = "\n---\n".join(current_chunk)
             logger.info(f"发送 Telegram 消息块 {chunk_index}...")
-            if not self._send_message(api_url, chunk_content):
+            if not await self._send_message(api_url, chunk_content):
                 all_success = False
 
         return all_success
@@ -143,13 +141,10 @@ class TelegramChannel(NotificationChannelBase):
         """将标准 Markdown 转换为 Telegram 支持的格式"""
         result = text
 
-        # 移除 # 标题标记
         result = re.sub(r"^#{1,6}\s+", "", result, flags=re.MULTILINE)
 
-        # 转换 **bold** 为 *bold*
         result = re.sub(r"\*\*(.+?)\*\*", r"*\1*", result)
 
-        # 转义特殊字符
         for char in ["[", "]", "(", ")"]:
             result = result.replace(char, f"\\{char}")
 

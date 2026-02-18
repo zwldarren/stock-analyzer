@@ -6,8 +6,8 @@ The coordinator is now simplified - it only collects agent signals without
 weighted voting, since the final decision is made by DecisionAgent.
 """
 
+import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -83,9 +83,9 @@ class AgentCoordinator:
             del self.agents[agent_name]
             self._logger.info(f"注销Agent: {agent_name}")
 
-    def analyze(self, context: dict[str, Any]) -> dict[str, Any]:
+    async def analyze(self, context: dict[str, Any]) -> dict[str, Any]:
         """
-        Execute multi-agent analysis and return aggregated results.
+        Execute multi-agent analysis and return aggregated results (async).
 
         Returns:
             Dictionary containing:
@@ -98,7 +98,7 @@ class AgentCoordinator:
         self._logger.debug(f"[{stock_code}] AgentCoordinator开始多Agent分析")
 
         # 1. Execute all available agents
-        agent_results = self._execute_agents(context)
+        agent_results = await self._execute_agents(context)
 
         # 2. Build consensus (simplified - no weighted scoring)
         consensus = self._build_consensus(agent_results)
@@ -129,8 +129,8 @@ class AgentCoordinator:
             },
         }
 
-    def _execute_agents(self, context: dict[str, Any]) -> dict[str, AgentAnalysisResult]:
-        """Execute all available agents in parallel and collect results."""
+    async def _execute_agents(self, context: dict[str, Any]) -> dict[str, AgentAnalysisResult]:
+        """Execute all available agents in parallel and collect results (async)."""
         results = {}
         stock_code = context.get("code", "Unknown")
 
@@ -153,15 +153,15 @@ class AgentCoordinator:
         if not agents_to_execute:
             return results
 
-        # Execute agents in parallel
+        # Execute agents in parallel using asyncio
         display = get_display()
 
-        def execute_single_agent(name_agent_pair: tuple[str, BaseAgent]) -> tuple[str, AgentAnalysisResult]:
+        async def execute_single_agent(name_agent_pair: tuple[str, BaseAgent]) -> tuple[str, AgentAnalysisResult]:
             name, agent = name_agent_pair
             display.start_agent(name)
             try:
                 self._logger.debug(f"[{stock_code}] 执行Agent: {name}")
-                signal = agent.analyze(context)
+                signal = await agent.analyze(context)
 
                 # 标准化信号类型
                 normalized_signal = normalize_signal(signal.signal.to_string())
@@ -194,14 +194,12 @@ class AgentCoordinator:
                 )
                 return name, result
 
-        # Use thread pool for parallel execution (max 5 workers)
-        max_workers = min(len(agents_to_execute), 5)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {executor.submit(execute_single_agent, (name, agent)): name for name, agent in agents_to_execute}
+        # Execute agents in parallel using asyncio.gather
+        tasks = [execute_single_agent((name, agent)) for name, agent in agents_to_execute]
+        completed = await asyncio.gather(*tasks)
 
-            for future in as_completed(futures):
-                name, result = future.result()
-                results[name] = result
+        for name, result in completed:
+            results[name] = result
 
         return results
 
