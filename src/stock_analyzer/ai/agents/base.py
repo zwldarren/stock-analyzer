@@ -8,9 +8,9 @@ All agents must inherit from BaseAgent and implement the analyze method.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from stock_analyzer.models import AgentSignal, SignalType
+from stock_analyzer.models import AgentSignal
 
-__all__ = ["BaseAgent", "AgentSignal", "SignalType"]
+__all__ = ["BaseAgent"]
 
 
 class BaseAgent(ABC):

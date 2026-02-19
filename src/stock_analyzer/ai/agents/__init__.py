@@ -1,6 +1,6 @@
 """AI agents for stock analysis."""
 
-from stock_analyzer.ai.agents.base import AgentSignal, BaseAgent, SignalType
+from stock_analyzer.ai.agents.base import BaseAgent
 from stock_analyzer.ai.agents.chip_agent import ChipAgent
 from stock_analyzer.ai.agents.coordinator import AgentAnalysisResult, AgentConsensus, AgentCoordinator
 from stock_analyzer.ai.agents.fundamental_agent import FundamentalAgent

@@ -23,7 +23,7 @@ from stock_analyzer.analysis.context import (
 )
 from stock_analyzer.dependencies import get_ai_analyzer, get_data_manager, get_db
 from stock_analyzer.models import AnalysisResult
-from stock_analyzer.utils.console_display import get_display
+from stock_analyzer.utils import get_display
 
 logger = logging.getLogger(__name__)
 

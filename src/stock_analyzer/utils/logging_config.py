@@ -10,7 +10,7 @@ from rich.logging import RichHandler
 from rich.theme import Theme
 
 _console: Console | None = None
-
+_display: Any = None  # RichConsoleDisplay instance
 _live_display: Any = None
 _log_buffer: list[tuple[str, str]] = []
 
@@ -31,6 +31,16 @@ def get_console() -> Console:
         )
         _console = Console(theme=custom_theme, force_terminal=True)
     return _console
+
+
+def get_display() -> Any:
+    """Get or create the global display instance."""
+    global _display
+    if _display is None:
+        from stock_analyzer.utils.console_display import RichConsoleDisplay
+
+        _display = RichConsoleDisplay()
+    return _display
 
 
 def set_live_display(live: Any) -> None:

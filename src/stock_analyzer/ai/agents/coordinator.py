@@ -13,7 +13,7 @@ from typing import Any
 
 from stock_analyzer.constants import SIGNAL_BUY, SIGNAL_HOLD, SIGNAL_SELL, normalize_signal
 from stock_analyzer.exceptions import ValidationError
-from stock_analyzer.utils.console_display import get_display
+from stock_analyzer.utils import get_display
 
 from .base import BaseAgent
 

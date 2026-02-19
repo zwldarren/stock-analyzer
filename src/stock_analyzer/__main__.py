@@ -20,10 +20,11 @@ import click
 
 from stock_analyzer.analysis import batch_analyze
 from stock_analyzer.config import Config, check_config_valid, get_config, get_config_safe
-from stock_analyzer.dependencies import get_data_manager, get_notification_service
+from stock_analyzer.dependencies import get_data_manager
 from stock_analyzer.infrastructure import aiohttp_session_manager
-from stock_analyzer.utils.console_display import get_display
-from stock_analyzer.utils.logging_config import get_console, setup_logging
+from stock_analyzer.notification import get_notification_service
+from stock_analyzer.utils import get_console, get_display
+from stock_analyzer.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 

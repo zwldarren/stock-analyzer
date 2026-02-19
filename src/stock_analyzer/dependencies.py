@@ -9,7 +9,7 @@ to avoid scattered global state.
 from __future__ import annotations
 
 from functools import cache
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from stock_analyzer.config import get_config
 from stock_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
@@ -21,7 +21,6 @@ register_builtin_providers()
 if TYPE_CHECKING:
     from stock_analyzer.ai.analyzer import AIAnalyzer
     from stock_analyzer.data.manager import DataManager
-    from stock_analyzer.notification.service import NotificationService
     from stock_analyzer.search.service import SearchService
 
 
@@ -109,21 +108,3 @@ def get_search_service() -> SearchService:
     )
     service.set_db(get_db())
     return service
-
-
-def get_notification_service(context: Any | None = None) -> NotificationService:
-    """
-    Get notification service instance (factory).
-
-    Creates a new instance each time to support different contexts.
-    Notification service sends alerts through multiple channels.
-
-    Args:
-        context: Optional message context for the notification
-
-    Returns:
-        NotificationService instance
-    """
-    from stock_analyzer.notification.service import NotificationService
-
-    return NotificationService(context=context)

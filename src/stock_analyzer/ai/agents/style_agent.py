@@ -14,8 +14,9 @@ import math
 from typing import Any
 
 from stock_analyzer.exceptions import handle_errors
+from stock_analyzer.models import AgentSignal, SignalType
 
-from .base import AgentSignal, BaseAgent, SignalType
+from .base import BaseAgent
 from .utils import FinancialScorer
 
 logger = logging.getLogger(__name__)

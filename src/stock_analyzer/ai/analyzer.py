@@ -22,7 +22,7 @@ from stock_analyzer.constants import normalize_signal
 from stock_analyzer.data.stock_name_resolver import StockNameResolver
 from stock_analyzer.exceptions import AnalysisError
 from stock_analyzer.models import AnalysisResult
-from stock_analyzer.utils.console_display import get_display
+from stock_analyzer.utils import get_display
 
 logger = logging.getLogger(__name__)
 

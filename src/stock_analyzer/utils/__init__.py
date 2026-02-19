@@ -9,7 +9,7 @@
     - stock_name_resolver: 股票名称解析器
 """
 
-from stock_analyzer.utils.logging_config import setup_logging
+from stock_analyzer.utils.logging_config import get_console, get_display, setup_logging
 from stock_analyzer.utils.stock_code import (
     StockType,
     detect_stock_type,
@@ -18,7 +18,17 @@ from stock_analyzer.utils.stock_code import (
     is_us_code,
 )
 
-__all__ = ["setup_logging", "StockType", "detect_stock_type", "is_us_code", "is_hk_code", "is_etf_code"]
+__all__ = [
+    "calculate_backoff_delay",
+    "get_console",
+    "get_display",
+    "setup_logging",
+    "StockType",
+    "detect_stock_type",
+    "is_us_code",
+    "is_hk_code",
+    "is_etf_code",
+]
 
 
 def calculate_backoff_delay(attempt: int, base_delay: float, max_delay: float = 60.0) -> float:

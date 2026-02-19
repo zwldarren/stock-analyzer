@@ -17,9 +17,10 @@ from typing import TYPE_CHECKING, Any
 
 from stock_analyzer.ai.clients import get_llm_client
 from stock_analyzer.ai.tools import ANALYZE_SIGNAL_TOOL
+from stock_analyzer.models import AgentSignal, SignalType
 from stock_analyzer.search import SearchService
 
-from .base import AgentSignal, BaseAgent, SignalType
+from .base import BaseAgent
 
 if TYPE_CHECKING:
     from stock_analyzer.ai.clients import LiteLLMClient

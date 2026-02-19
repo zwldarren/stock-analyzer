@@ -2,9 +2,6 @@
 Rich Console Display Module
 
 Provides Rich-based terminal display for analysis progress and reports.
-改进：
-- 简洁的进度显示，仅显示股票级别进度
-- 移除 Agent 级别进度和日志面板，保持界面清爽
 """
 
 from typing import TYPE_CHECKING
@@ -26,6 +23,8 @@ from stock_analyzer.utils.logging_config import (
     get_console,
     set_live_display,
 )
+
+__all__ = ["RichConsoleDisplay"]
 
 
 class RichConsoleDisplay:
@@ -234,15 +233,3 @@ class RichConsoleDisplay:
 
         if extras:
             self.console.print(" | ".join(extras))
-
-
-# Global display instance
-_display: RichConsoleDisplay | None = None
-
-
-def get_display() -> RichConsoleDisplay:
-    """Get or create the global display instance."""
-    global _display
-    if _display is None:
-        _display = RichConsoleDisplay()
-    return _display
