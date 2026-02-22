@@ -22,20 +22,20 @@ ty check .
 
 ### Running the Application
 ```bash
-# Use uv run to execute (entry point is stock-analyzer command)
-uv run stock-analyzer --help                    # See all options
-uv run stock-analyzer --stocks 600519           # Analyze single stock
-uv run stock-analyzer --market-review           # Market review only
-uv run stock-analyzer --dry-run --no-notify     # Test without AI/notifications
-uv run stock-analyzer --debug                   # Debug mode with verbose logs
-uv run stock-analyzer --schedule                # Enable scheduled execution
+# Use uv run to execute (entry point is ashare-analyzer command)
+uv run ashare-analyzer --help                    # See all options
+uv run ashare-analyzer --stocks 600519           # Analyze single stock
+uv run ashare-analyzer --market-review           # Market review only
+uv run ashare-analyzer --dry-run --no-notify     # Test without AI/notifications
+uv run ashare-analyzer --debug                   # Debug mode with verbose logs
+uv run ashare-analyzer --schedule                # Enable scheduled execution
 ```
 
 ### Docker
 ```bash
 # Build and run Docker container
-docker build -t stock-analyzer -f docker/Dockerfile .
-docker run -it --env-file .env stock-analyzer
+docker build -t ashare-analyzer -f docker/Dockerfile .
+docker run -it --env-file .env ashare-analyzer
 ```
 
 ## Code Style Guidelines
@@ -54,8 +54,8 @@ docker run -it --env-file .env stock-analyzer
   import requests
   from tenacity import retry, stop_after_attempt
 
-  from stock_analyzer.config import get_config
-  from stock_analyzer.data_provider.base import BaseFetcher
+  from ashare_analyzer.config import get_config
+  from ashare_analyzer.data_provider.base import BaseFetcher
   ```
 
 ### Formatting & Linting (ruff)
@@ -77,7 +77,7 @@ docker run -it --env-file .env stock-analyzer
 - Private methods: `_leading_underscore`
 
 ### Error Handling
-- Use domain exceptions from `stock_analyzer.domain.exceptions`
+- Use domain exceptions from `ashare_analyzer.domain.exceptions`
 - Use `@handle_errors` decorator for graceful degradation
 - Use `safe_execute()` for safe function calls with defaults
 - **Exception Hierarchy**:
@@ -88,7 +88,7 @@ docker run -it --env-file .env stock-analyzer
     - `NotificationError`, `ConfigurationError`
 - **Example**:
   ```python
-  from stock_analyzer.domain.exceptions import handle_errors, DataFetchError
+  from ashare_analyzer.domain.exceptions import handle_errors, DataFetchError
 
   @handle_errors("获取股票数据失败", default_return=None)
   def fetch_stock_data(code: str) -> dict | None:

@@ -2,8 +2,8 @@
 
 import pytest
 
-from stock_analyzer.ai.agents.base import BaseAgent
-from stock_analyzer.models import AgentSignal, SignalType
+from ashare_analyzer.ai.agents.base import BaseAgent
+from ashare_analyzer.models import AgentSignal, SignalType
 
 
 class ConcreteAgent(BaseAgent):

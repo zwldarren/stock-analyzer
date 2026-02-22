@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from stock_analyzer.ai.agents.portfolio_manager import PortfolioManagerAgent
-from stock_analyzer.models import SignalType
+from ashare_analyzer.ai.agents.portfolio_manager import PortfolioManagerAgent
+from ashare_analyzer.models import SignalType
 
 
 class TestPortfolioManagerAgent:
@@ -13,20 +13,20 @@ class TestPortfolioManagerAgent:
 
     def test_init(self):
         """Test agent initialization."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
             assert agent.name == "PortfolioManagerAgent"
 
     def test_is_available_returns_true(self):
         """Test is_available always returns True."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
             assert agent.is_available() is True
 
     @pytest.mark.asyncio
     async def test_analyze_no_agent_signals_returns_hold(self):
         """Test analysis with no agent signals returns HOLD with error."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             context = {
@@ -47,7 +47,7 @@ class TestPortfolioManagerAgent:
     @pytest.mark.asyncio
     async def test_analyze_buy_decision_rule_based(self):
         """Test BUY decision when weighted_score >= 30."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             context = {
@@ -72,7 +72,7 @@ class TestPortfolioManagerAgent:
     @pytest.mark.asyncio
     async def test_analyze_sell_decision_rule_based(self):
         """Test SELL decision when weighted_score <= -30."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             context = {
@@ -97,7 +97,7 @@ class TestPortfolioManagerAgent:
     @pytest.mark.asyncio
     async def test_analyze_hold_decision_rule_based(self):
         """Test HOLD decision when -30 < weighted_score < 30."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             context = {
@@ -122,7 +122,7 @@ class TestPortfolioManagerAgent:
     @pytest.mark.asyncio
     async def test_analyze_respects_max_position_limit(self):
         """Test position ratio is capped by risk manager limit."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             # High confidence buy would normally give high position
@@ -162,7 +162,7 @@ class TestPortfolioManagerAgent:
             }
         )
 
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=mock_llm_client):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=mock_llm_client):
             agent = PortfolioManagerAgent()
 
             context = {
@@ -186,7 +186,7 @@ class TestPortfolioManagerAgent:
     @pytest.mark.asyncio
     async def test_analyze_with_risk_flags_reduces_confidence(self):
         """Test that risk flags reduce confidence in rule-based decision."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             context_no_risk = {
@@ -219,7 +219,7 @@ class TestPortfolioManagerAgent:
     @pytest.mark.asyncio
     async def test_analyze_exception_returns_hold(self):
         """Test exception during analysis returns HOLD."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             # Context that will cause exception (missing required keys)
@@ -235,7 +235,7 @@ class TestPortfolioManagerHelpers:
 
     def test_get_max_position_limit_from_signal(self):
         """Test extracting max position limit from risk manager signal."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             risk_signal = {"metadata": {"max_position_size": 0.15}}
@@ -245,7 +245,7 @@ class TestPortfolioManagerHelpers:
 
     def test_get_max_position_limit_default(self):
         """Test default max position limit when no signal provided."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             # No signal
@@ -266,7 +266,7 @@ class TestPortfolioManagerHelpers:
 
     def test_action_to_signal_buy(self):
         """Test converting BUY action to SignalType."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             assert agent._action_to_signal("BUY") == SignalType.BUY
@@ -275,7 +275,7 @@ class TestPortfolioManagerHelpers:
 
     def test_action_to_signal_sell(self):
         """Test converting SELL action to SignalType."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             assert agent._action_to_signal("SELL") == SignalType.SELL
@@ -284,7 +284,7 @@ class TestPortfolioManagerHelpers:
 
     def test_action_to_signal_hold(self):
         """Test converting HOLD action to SignalType."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             assert agent._action_to_signal("HOLD") == SignalType.HOLD
@@ -293,7 +293,7 @@ class TestPortfolioManagerHelpers:
 
     def test_action_to_signal_unknown_returns_hold(self):
         """Test unknown action returns HOLD."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             assert agent._action_to_signal("UNKNOWN") == SignalType.HOLD
@@ -302,7 +302,7 @@ class TestPortfolioManagerHelpers:
 
     def test_summarize_signals(self):
         """Test summarizing agent signals."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             agent_signals = {
@@ -321,7 +321,7 @@ class TestPortfolioManagerHelpers:
 
     def test_summarize_signals_empty(self):
         """Test summarizing empty signals."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             result = agent._summarize_signals({})
@@ -330,7 +330,7 @@ class TestPortfolioManagerHelpers:
 
     def test_summarize_signals_missing_fields(self):
         """Test summarizing signals with missing fields."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             agent_signals = {
@@ -349,7 +349,7 @@ class TestPortfolioManagerHelpers:
 
     def test_make_rule_based_decision_buy_boundary(self):
         """Test rule-based decision at BUY boundary (weighted_score = 30)."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             result = agent._make_rule_based_decision(
@@ -363,7 +363,7 @@ class TestPortfolioManagerHelpers:
 
     def test_make_rule_based_decision_sell_boundary(self):
         """Test rule-based decision at SELL boundary (weighted_score = -30)."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             result = agent._make_rule_based_decision(
@@ -377,7 +377,7 @@ class TestPortfolioManagerHelpers:
 
     def test_make_rule_based_decision_hold_range(self):
         """Test rule-based decision in HOLD range (-29 to 29)."""
-        with patch("stock_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.portfolio_manager.get_llm_client", return_value=None):
             agent = PortfolioManagerAgent()
 
             # Test at 0

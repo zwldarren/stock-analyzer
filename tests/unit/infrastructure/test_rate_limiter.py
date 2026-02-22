@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from stock_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
+from ashare_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
 
 
 @pytest.mark.asyncio

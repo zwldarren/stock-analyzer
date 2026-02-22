@@ -4,8 +4,8 @@ import math
 
 import pytest
 
-from stock_analyzer.ai.agents.valuation_agent import ValuationAgent
-from stock_analyzer.models import SignalType
+from ashare_analyzer.ai.agents.valuation_agent import ValuationAgent
+from ashare_analyzer.models import SignalType
 
 
 class TestValuationAgent:

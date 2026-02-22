@@ -1,5 +1,5 @@
 [project]
-name = "stock-analyzer"
+name = "ashare-analyzer"
 version = "0.1.0"
 description = "AI-powered A-share stock analysis system with multi-agent architecture"
 readme = "README.md"
@@ -48,7 +48,7 @@ requires = ["uv_build>=0.9.6,<0.10.0"]
 build-backend = "uv_build"
 
 [project.scripts]
-stock-analyzer = "stock_analyzer.__main__:main"
+ashare-analyzer = "ashare_analyzer.__main__:main"
 
 [tool.ruff]
 line-length = 120
@@ -70,7 +70,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "--tb=short --cov=stock_analyzer --cov-report=term-missing"
+addopts = "--tb=short --cov=ashare_analyzer --cov-report=term-missing"
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

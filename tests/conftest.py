@@ -1,4 +1,4 @@
-"""Shared fixtures for stock_analyzer tests."""
+"""Shared fixtures for ashare_analyzer tests."""
 
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -23,7 +23,7 @@ def mock_llm_response():
 @pytest.fixture
 def mock_acompletion(mock_llm_response):
     """Patch acompletion for LLM tests."""
-    with patch("stock_analyzer.ai.clients.acompletion", new_callable=AsyncMock) as mock:
+    with patch("ashare_analyzer.ai.clients.acompletion", new_callable=AsyncMock) as mock:
         yield mock
 
 
@@ -72,7 +72,7 @@ def sample_analysis_context(sample_stock_data):
 @pytest.fixture
 def sample_agent_signal():
     """Sample agent signal for testing."""
-    from stock_analyzer.models import AgentSignal, SignalType
+    from ashare_analyzer.models import AgentSignal, SignalType
 
     return AgentSignal(
         agent_name="TestAgent",

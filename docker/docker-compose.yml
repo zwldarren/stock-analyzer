@@ -1,15 +1,15 @@
 services:
-    stock-analyzer:
+    ashare-analyzer:
         build:
             context: ..
             dockerfile: docker/Dockerfile
-        container_name: stock-analyzer
+        container_name: ashare-analyzer
         env_file:
             - ../.env
         volumes:
             # Mount base directory for all runtime data persistence
-            - ../stock-analyzer-data:/app/stock-analyzer-data
+            - ../ashare-analyzer-data:/app/ashare-analyzer-data
         environment:
             # Set BASE_DIR to the mounted volume path
-            - BASE_DIR=/app/stock-analyzer-data
+            - BASE_DIR=/app/ashare-analyzer-data
         restart: unless-stopped

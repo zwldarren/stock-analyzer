@@ -2,8 +2,8 @@ import time
 
 import pytest
 
-from stock_analyzer.data.base import BaseFetcher
-from stock_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
+from ashare_analyzer.data.base import BaseFetcher
+from ashare_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
 
 
 class MockFetcher(BaseFetcher):

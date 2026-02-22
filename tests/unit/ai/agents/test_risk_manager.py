@@ -2,8 +2,8 @@
 
 import pytest
 
-from stock_analyzer.ai.agents.risk_manager import RiskManagerAgent
-from stock_analyzer.models import SignalType
+from ashare_analyzer.ai.agents.risk_manager import RiskManagerAgent
+from ashare_analyzer.models import SignalType
 
 
 class TestRiskManagerAgent:

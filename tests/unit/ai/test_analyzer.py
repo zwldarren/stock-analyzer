@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from stock_analyzer.ai.analyzer import AIAnalyzer
-from stock_analyzer.models import AgentSignal, AnalysisResult, SignalType
+from ashare_analyzer.ai.analyzer import AIAnalyzer
+from ashare_analyzer.models import AgentSignal, AnalysisResult, SignalType
 
 
 class TestAIAnalyzer:
@@ -13,7 +13,7 @@ class TestAIAnalyzer:
 
     def test_init(self):
         """Test AIAnalyzer initializes correctly."""
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer()
 
             assert analyzer._agent_coordinator is not None
@@ -83,7 +83,7 @@ class TestAIAnalyzer:
         mock_portfolio_manager = MagicMock()
         mock_portfolio_manager.analyze = AsyncMock(return_value=mock_portfolio_signal)
 
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer.__new__(AIAnalyzer)
             analyzer._agent_coordinator = mock_coordinator
             analyzer._risk_manager_agent = mock_risk_manager
@@ -150,7 +150,7 @@ class TestAIAnalyzer:
         mock_portfolio_manager = MagicMock()
         mock_portfolio_manager.analyze = AsyncMock(return_value=mock_portfolio_signal)
 
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer.__new__(AIAnalyzer)
             analyzer._agent_coordinator = mock_coordinator
             analyzer._risk_manager_agent = mock_risk_manager
@@ -191,7 +191,7 @@ class TestAIAnalyzer:
         mock_risk_manager = MagicMock()
         mock_risk_manager.analyze = AsyncMock(return_value=mock_risk_signal)
 
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer.__new__(AIAnalyzer)
             analyzer._agent_coordinator = mock_coordinator
             analyzer._risk_manager_agent = mock_risk_manager
@@ -210,7 +210,7 @@ class TestAIAnalyzer:
         mock_risk_manager = MagicMock()
         mock_risk_manager.analyze = AsyncMock(side_effect=Exception("Risk manager failed"))
 
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer.__new__(AIAnalyzer)
             analyzer._agent_coordinator = MagicMock()
             analyzer._risk_manager_agent = mock_risk_manager
@@ -257,7 +257,7 @@ class TestAIAnalyzer:
             ),
         ]
 
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer.__new__(AIAnalyzer)
             analyzer._agent_coordinator = MagicMock()
 
@@ -313,7 +313,7 @@ class TestAIAnalyzer:
         mock_portfolio_manager = MagicMock()
         mock_portfolio_manager.analyze = AsyncMock(return_value=mock_portfolio_signal)
 
-        with patch("stock_analyzer.ai.analyzer.get_display"):
+        with patch("ashare_analyzer.ai.analyzer.get_display"):
             analyzer = AIAnalyzer.__new__(AIAnalyzer)
             analyzer._agent_coordinator = mock_coordinator
             analyzer._risk_manager_agent = mock_risk_manager

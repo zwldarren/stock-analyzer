@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for stock-analyzer using uv
+# Multi-stage Dockerfile for ashare-analyzer using uv
 # Reference: https://docs.astral.sh/uv/guides/integration/docker/
 
 # Stage 1: Builder
@@ -62,5 +62,5 @@ USER appuser
 # Set working directory
 WORKDIR /app
 
-ENTRYPOINT ["uv", "run", "stock-analyzer"]
+ENTRYPOINT ["uv", "run", "ashare-analyzer"]
 CMD ["--help"]

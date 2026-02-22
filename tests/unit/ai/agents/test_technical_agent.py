@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from stock_analyzer.ai.agents.technical_agent import TechnicalAgent
-from stock_analyzer.models import SignalType
+from ashare_analyzer.ai.agents.technical_agent import TechnicalAgent
+from ashare_analyzer.models import SignalType
 
 
 class TestTechnicalAgent:
@@ -13,20 +13,20 @@ class TestTechnicalAgent:
 
     def test_init(self):
         """Test agent initialization."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             assert agent.name == "TechnicalAgent"
 
     def test_is_available_returns_true(self):
         """Test is_available always returns True."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             assert agent.is_available() is True
 
     @pytest.mark.asyncio
     async def test_analyze_bullish_trend_returns_buy(self, sample_analysis_context):
         """Test bullish trend analysis returns BUY signal."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
 
             # Create bullish context
@@ -47,7 +47,7 @@ class TestTechnicalAgent:
     @pytest.mark.asyncio
     async def test_analyze_bearish_trend_returns_sell(self, sample_analysis_context):
         """Test bearish trend analysis returns SELL signal."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
 
             # Create bearish context
@@ -67,7 +67,7 @@ class TestTechnicalAgent:
     @pytest.mark.asyncio
     async def test_analyze_missing_price_data_returns_hold(self):
         """Test analysis with missing price data returns HOLD."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
 
             result = await agent.analyze(
@@ -97,7 +97,7 @@ class TestTechnicalAgent:
             }
         )
 
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=mock_llm_client):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=mock_llm_client):
             agent = TechnicalAgent()
 
             result = await agent.analyze(sample_analysis_context)
@@ -109,7 +109,7 @@ class TestTechnicalAgent:
     @pytest.mark.asyncio
     async def test_analyze_exception_returns_hold(self):
         """Test exception during analysis returns HOLD."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
 
             # Context that will cause exception
@@ -125,49 +125,49 @@ class TestTechnicalAgentHelpers:
 
     def test_analyze_volume_significant(self):
         """Test volume analysis for significant volume."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._analyze_volume(2.5)
             assert result == "显著放量"
 
     def test_analyze_volume_normal(self):
         """Test volume analysis for normal volume."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._analyze_volume(1.0)
             assert result == "量能正常"
 
     def test_analyze_volume_shrinking(self):
         """Test volume analysis for shrinking volume."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._analyze_volume(0.3)
             assert result == "明显缩量"
 
     def test_interpret_rsi_overbought(self):
         """Test RSI interpretation for overbought."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._interpret_rsi(75)
             assert result == "超买"
 
     def test_interpret_rsi_oversold(self):
         """Test RSI interpretation for oversold."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._interpret_rsi(15)
             assert result == "严重超卖"
 
     def test_interpret_adx_strong_trend(self):
         """Test ADX interpretation for strong trend."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._interpret_adx(45)
             assert result == "很强趋势"
 
     def test_interpret_adx_no_trend(self):
         """Test ADX interpretation for no trend."""
-        with patch("stock_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
+        with patch("ashare_analyzer.ai.agents.technical_agent.get_llm_client", return_value=None):
             agent = TechnicalAgent()
             result = agent._interpret_adx(15)
             assert result == "无趋势"

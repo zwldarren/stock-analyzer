@@ -18,8 +18,8 @@ An intelligent stock analysis system powered by LLMs (Large Language Models) tha
 
 ```bash
 # Clone the repository
-git clone git@github.com:zwldarren/stock-analyzer.git
-cd stock-analyzer
+git clone git@github.com:zwldarren/ashare-analyzer.git
+cd ashare-analyzer
 
 # Install dependencies
 uv sync
@@ -40,22 +40,22 @@ STOCK_LIST=600519,300750,002594
 
 ```bash
 # Run analysis
-uv run stock-analyzer
+uv run ashare-analyzer
 
 # Debug mode
-uv run stock-analyzer --debug
+uv run ashare-analyzer --debug
 
 # Analyze specific stocks
-uv run stock-analyzer --stocks 600519,000001
+uv run ashare-analyzer --stocks 600519,000001
 
 # Scheduled mode (runs daily)
-uv run stock-analyzer --schedule
+uv run ashare-analyzer --schedule
 
 # Dry run (no AI analysis)
-uv run stock-analyzer --dry-run
+uv run ashare-analyzer --dry-run
 
 # No notifications
-uv run stock-analyzer --no-notify
+uv run ashare-analyzer --no-notify
 ```
 
 ## 🔧 Development
@@ -78,10 +78,10 @@ pytest
 
 ```bash
 # Build image
-docker build -t stock-analyzer -f docker/Dockerfile .
+docker build -t ashare-analyzer -f docker/Dockerfile .
 
 # Run container
-docker run -it --env-file .env stock-analyzer
+docker run -it --env-file .env ashare-analyzer
 ```
 
 ## 📄 License

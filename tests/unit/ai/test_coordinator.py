@@ -2,10 +2,10 @@
 
 import pytest
 
-from stock_analyzer.ai.agents.base import BaseAgent
-from stock_analyzer.ai.agents.coordinator import AgentAnalysisResult, AgentConsensus, AgentCoordinator
-from stock_analyzer.exceptions import ValidationError
-from stock_analyzer.models import AgentSignal, SignalType
+from ashare_analyzer.ai.agents.base import BaseAgent
+from ashare_analyzer.ai.agents.coordinator import AgentAnalysisResult, AgentConsensus, AgentCoordinator
+from ashare_analyzer.exceptions import ValidationError
+from ashare_analyzer.models import AgentSignal, SignalType
 
 
 class MockAgent(BaseAgent):

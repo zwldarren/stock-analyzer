@@ -1,6 +1,6 @@
 import pytest
 
-from stock_analyzer.infrastructure.http_client import (
+from ashare_analyzer.infrastructure.http_client import (
     aiohttp_session_manager,
     get_aiohttp_session,
 )
