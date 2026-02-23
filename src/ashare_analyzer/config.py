@@ -82,10 +82,10 @@ _COMMON_CONFIG = SettingsConfigDict(
 class AIConfig(BaseSettings):
     """AI model configuration supporting multiple providers via litellm format."""
 
-    model_config = _COMMON_CONFIG
+    model_config: SettingsConfigDict = _COMMON_CONFIG
 
     # Primary model configuration (litellm format: provider/model-name)
-    llm_model: str = Field(default="deepseek/deepseek-reasoner", validation_alias="LLM_MODEL")
+    llm_model: str | None = Field(default=None, validation_alias="LLM_MODEL")
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
     llm_base_url: str | None = Field(default=None, validation_alias="LLM_BASE_URL")
 

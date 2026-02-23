@@ -31,25 +31,23 @@
 ### 环境要求
 
 - Python 3.13+
-- [uv](https://docs.astral.sh/uv/) 包管理器
 
 ### 安装
 
 ```bash
-# 克隆仓库
-git clone https://github.com/zwldarren/ashare-analyzer.git
-cd ashare-analyzer
+# 使用 uv 安装（推荐）
+uv tool install ashare-analyzer
 
-# 安装依赖
-uv sync
+# 或使用 uvx 直接运行（无需安装）
+uvx ashare-analyzer
 
-# 复制环境配置
-cp .env.example .env
+# 或使用 pip 安装
+pip install ashare-analyzer
 ```
 
 ### 配置
 
-编辑 `.env` 文件：
+在您的工作目录下创建 `.env` 文件（或使用环境变量）：
 
 ```bash
 # 自选股列表（逗号分隔）
@@ -66,22 +64,28 @@ LLM_API_KEY=your_api_key_here
 
 ```bash
 # 运行分析
-uv run ashare-analyzer
+ashare-analyzer
 
 # 调试模式（详细日志）
-uv run ashare-analyzer --debug
+ashare-analyzer --debug
 
 # 分析指定股票
-uv run ashare-analyzer --stocks 600519,300750
+ashare-analyzer --stocks 600519,300750
+
+# 通过命令行覆盖 AI 模型配置
+ashare-analyzer --model openai/gpt-5 --api-key your_key --base-url https://api.openai.com/v1
 
 # 定时模式（每日在配置时间自动执行）
-uv run ashare-analyzer --schedule
+ashare-analyzer --schedule
 
 # 试运行模式（仅获取数据，不进行 AI 分析）
-uv run ashare-analyzer --dry-run
+ashare-analyzer --dry-run
 
 # 跳过通知推送
-uv run ashare-analyzer --no-notify
+ashare-analyzer --no-notify
+
+# 显示帮助
+ashare-analyzer --help
 ```
 
 ## 配置详情
@@ -196,6 +200,9 @@ cd docker && docker-compose up -d
 | `--debug` | 启用调试模式，输出详细日志 |
 | `--dry-run` | 仅获取数据，不进行 AI 分析 |
 | `--stocks <codes>` | 指定股票代码（逗号分隔，覆盖配置文件） |
+| `--model <name>` | 指定 AI 模型名称（覆盖配置文件） |
+| `--api-key <key>` | 指定 API 密钥（覆盖配置文件） |
+| `--base-url <url>` | 指定 API 基础 URL（覆盖配置文件） |
 | `--no-notify` | 不发送推送通知 |
 | `--single-notify` | 单股推送模式：每分析完一只股票立即推送 |
 | `--workers <n>` | 并发线程数 |

@@ -31,25 +31,28 @@ An intelligent A-share stock analysis system powered by LLMs with multi-agent ar
 ### Prerequisites
 
 - Python 3.13+
-- [uv](https://docs.astral.sh/uv/) for dependency management
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/zwldarren/ashare-analyzer.git
-cd ashare-analyzer
+# Install with uv (recommended)
+uv tool install ashare-analyzer
 
-# Install dependencies
-uv sync
+# Or run directly with uvx (no installation needed)
+uvx ashare-analyzer
 
-# Copy environment configuration
-cp .env.example .env
+# Or install with pip
+pip install ashare-analyzer
 ```
 
 ### Configuration
 
-Edit `.env` file with your configurations:
+Create a `.env` file in your working directory (or use environment variables):
+
+```bash
+# Copy example config (if you cloned the repo)
+cp .env.example .env
+```
 
 ```bash
 # Stock watchlist (comma-separated)
@@ -66,22 +69,28 @@ See [Configuration](#configuration-details) for all options.
 
 ```bash
 # Run analysis
-uv run ashare-analyzer
+ashare-analyzer
 
 # Debug mode (verbose logging)
-uv run ashare-analyzer --debug
+ashare-analyzer --debug
 
 # Analyze specific stocks
-uv run ashare-analyzer --stocks 600519,300750
+ashare-analyzer --stocks 600519,300750
+
+# Override AI model settings via CLI
+ashare-analyzer --model openai/gpt-5 --api-key your_key --base-url https://api.openai.com/v1
 
 # Scheduled mode (runs daily at configured time)
-uv run ashare-analyzer --schedule
+ashare-analyzer --schedule
 
 # Dry run (fetch data only, no AI analysis)
-uv run ashare-analyzer --dry-run
+ashare-analyzer --dry-run
 
 # Skip notifications
-uv run ashare-analyzer --no-notify
+ashare-analyzer --no-notify
+
+# Show help
+ashare-analyzer --help
 ```
 
 ## Configuration Details

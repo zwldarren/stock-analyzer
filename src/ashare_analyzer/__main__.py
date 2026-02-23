@@ -26,6 +26,7 @@ from ashare_analyzer.infrastructure import aiohttp_session_manager
 from ashare_analyzer.notification import get_notification_service
 from ashare_analyzer.utils import get_console, get_display
 from ashare_analyzer.utils.logging_config import setup_logging
+from ashare_analyzer.utils.stock_code import StockType, detect_stock_type
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +77,9 @@ def _print_analysis_header(stock_codes: list[str], max_workers: int, dry_run: bo
 )
 @click.option("--workers", type=int, default=None, help="并发线程数（默认使用配置值）")
 @click.option("--schedule", is_flag=True, help="启用定时任务模式，每日定时执行")
+@click.option("--api-key", type=str, help="AI 模型 API 密钥 (LLM_API_KEY)")
+@click.option("--base-url", type=str, help="AI 模型 API 基础 URL (LLM_BASE_URL)")
+@click.option("--model", type=str, help="AI 模型名称 (LLM_MODEL)")
 @click.pass_context
 def cli(
     ctx: click.Context,
@@ -86,6 +90,9 @@ def cli(
     single_notify: bool,
     workers: int | None,
     schedule: bool,
+    api_key: str | None,
+    base_url: str | None,
+    model: str | None,
 ) -> int:
     """A股自选股智能分析系统"""
     if ctx.invoked_subcommand is None:
@@ -98,9 +105,41 @@ def cli(
                 single_notify,
                 workers,
                 schedule,
+                api_key,
+                base_url,
+                model,
             )
         )
     return 0
+
+
+def _apply_cli_overrides(
+    config: Config,
+    stocks: str | None,
+    api_key: str | None,
+    base_url: str | None,
+    model: str | None,
+) -> None:
+    """Apply CLI options to Config instance directly."""
+    if stocks:
+        valid_codes = []
+        for code in stocks.split(","):
+            code = code.strip()
+            if code:
+                stock_type = detect_stock_type(code)
+                if stock_type != StockType.UNKNOWN:
+                    valid_codes.append(code)
+                else:
+                    logger.warning(f"无效的股票代码格式: {code}，已跳过")
+        if valid_codes:
+            object.__setattr__(config, "stock_list_str", ",".join(valid_codes))
+
+    if api_key:
+        config.ai.llm_api_key = api_key
+    if base_url:
+        config.ai.llm_base_url = base_url
+    if model:
+        config.ai.llm_model = model
 
 
 async def run_main_async(
@@ -111,6 +150,9 @@ async def run_main_async(
     single_notify: bool,
     workers: int | None,
     schedule: bool,
+    api_key: str | None,
+    base_url: str | None,
+    model: str | None,
 ) -> int:
     """Async main program."""
     config, errors = get_config_safe()
@@ -130,6 +172,8 @@ async def run_main_async(
 
     config = get_config()
 
+    _apply_cli_overrides(config, stocks, api_key, base_url, model)
+
     if os.getenv("GITHUB_ACTIONS") != "true":
         if config.system.http_proxy:
             os.environ["http_proxy"] = config.system.http_proxy
@@ -147,10 +191,7 @@ async def run_main_async(
     for warning in warnings:
         logger.warning(warning)
 
-    stock_codes = None
-    if stocks:
-        stock_codes = [code.strip() for code in stocks.split(",") if code.strip()]
-        logger.info(f"使用命令行指定的股票列表: {stock_codes}")
+    stock_codes = config.stock_list if stocks else None
 
     try:
         async with aiohttp_session_manager():

@@ -3,7 +3,12 @@ name = "ashare-analyzer"
 version = "0.1.0"
 description = "AI-powered A-share stock analysis system with multi-agent architecture"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
+authors = [
+    { name = "zwldarren", email = "zwldarren@gmail.com" },
+]
+keywords = ["stock", "analysis", "ai", "llm", "a-share", "trading", "finance"]
 dependencies = [
     "aiohttp>=3.9.0",
     "akshare>=1.18.21",
@@ -34,6 +39,15 @@ dependencies = [
     "yfinance>=1.1.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/zwldarren/ashare-analyzer"
+Documentation = "https://github.com/zwldarren/ashare-analyzer#readme"
+Repository = "https://github.com/zwldarren/ashare-analyzer"
+Issues = "https://github.com/zwldarren/ashare-analyzer/issues"
+
+[project.scripts]
+ashare-analyzer = "ashare_analyzer.__main__:main"
+
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
@@ -46,9 +60,6 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.9.6,<0.10.0"]
 build-backend = "uv_build"
-
-[project.scripts]
-ashare-analyzer = "ashare_analyzer.__main__:main"
 
 [tool.ruff]
 line-length = 120
