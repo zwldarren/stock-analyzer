@@ -89,6 +89,7 @@ class LiteLLMClient:
         config = get_config()
         max_retries = config.ai.llm_max_retries
         base_delay = config.ai.llm_retry_delay
+        timeout = generation_config.get("timeout", config.ai.llm_timeout)
 
         temperature = generation_config.get("temperature", config.ai.llm_temperature)
         max_tokens = generation_config.get("max_output_tokens", config.ai.llm_max_tokens)
@@ -112,6 +113,7 @@ class LiteLLMClient:
                     "messages": messages,
                     "temperature": temperature,
                     "max_tokens": max_tokens,
+                    "timeout": timeout,
                 }
 
                 if self.api_key:
@@ -162,7 +164,7 @@ class LiteLLMClient:
         Args:
             prompt: User prompt for the LLM
             tool: Function tool schema dict
-            generation_config: Generation config (temperature, max_tokens)
+            generation_config: Generation config (temperature, max_tokens, timeout)
             system_prompt: Optional system prompt override
 
         Returns:
@@ -175,6 +177,7 @@ class LiteLLMClient:
         config = get_config()
         temperature = generation_config.get("temperature", config.ai.llm_temperature)
         max_tokens = generation_config.get("max_output_tokens", config.ai.llm_max_tokens)
+        timeout = generation_config.get("timeout", config.ai.llm_timeout)
 
         sys_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
 
@@ -191,6 +194,7 @@ class LiteLLMClient:
                 "tool_choice": {"type": "function", "function": {"name": tool["function"]["name"]}},
                 "temperature": temperature,
                 "max_tokens": max_tokens,
+                "timeout": timeout,
             }
 
             if self.api_key:
@@ -209,6 +213,14 @@ class LiteLLMClient:
                     result = json.loads(arguments_str)
                     logger.debug(f"[{self.model}] Function call result: {result}")
                     return result
+                else:
+                    # Log when model returns text instead of tool call
+                    content_preview = ""
+                    if choice.message.content:
+                        content_preview = choice.message.content[:200]
+                    logger.warning(
+                        f"[{self.model}] No tool calls in response. Model returned text instead: {content_preview}..."
+                    )
 
             logger.warning(f"[{self.model}] No tool calls in response")
             return None
@@ -232,6 +244,10 @@ def get_llm_client() -> LiteLLMClient | None:
         config = get_config()
         if not config.ai.llm_api_key:
             logger.warning("未配置 LLM API Key")
+            return None
+
+        if not config.ai.llm_model:
+            logger.warning("未配置 LLM 模型名称")
             return None
 
         client = LiteLLMClient(
@@ -269,6 +285,9 @@ def get_filter_llm_client() -> LiteLLMClient | None:
 
         # Use filter-specific model if configured, otherwise use main model
         model = config.news_filter.news_filter_model or config.ai.llm_model
+        if not model:
+            logger.warning("未配置 LLM 模型名称")
+            return None
 
         client = LiteLLMClient(
             model=model,

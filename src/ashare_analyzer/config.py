@@ -100,6 +100,7 @@ class AIConfig(BaseSettings):
     llm_request_delay: float = Field(default=2.0, validation_alias="LLM_REQUEST_DELAY")
     llm_max_retries: int = Field(default=5, ge=0, le=10, validation_alias="LLM_MAX_RETRIES")
     llm_retry_delay: float = Field(default=5.0, validation_alias="LLM_RETRY_DELAY")
+    llm_timeout: float = Field(default=300, ge=10.0, validation_alias="LLM_TIMEOUT")
 
 
 class SearchConfig(BaseSettings):

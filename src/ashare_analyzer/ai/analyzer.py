@@ -156,6 +156,9 @@ class AIAnalyzer(IAIAnalyzer):
             current_position = context.get("current_position", "none")
 
             # Step 5: PortfolioManager makes final decision with risk constraints
+            # Calculate weighted score from agent signals
+            weighted_score = self._calculate_weighted_score(agent_signals)
+
             decision_context = {
                 "code": code,
                 "stock_name": name,
@@ -171,7 +174,7 @@ class AIAnalyzer(IAIAnalyzer):
                     "consensus_level": consensus_level,
                     "participating_agents": consensus.participating_agents,
                     "risk_flags": consensus.risk_flags,
-                    "weighted_score": risk_manager_signal.metadata.get("risk_score", 50),
+                    "weighted_score": weighted_score,
                 },
                 "market_data": context.get("today", {}),
             }
@@ -326,6 +329,70 @@ class AIAnalyzer(IAIAnalyzer):
             market_snapshot=self._build_market_snapshot(context),
             success=True,
         )
+
+    def _calculate_weighted_score(self, agent_signals: dict[str, Any]) -> float:
+        """
+        Calculate weighted score from agent signals.
+
+        Score range: -100 (strong sell) to +100 (strong buy)
+
+        Each agent contributes:
+        - buy: +confidence
+        - sell: -confidence
+        - hold: 0
+
+        Weights are based on agent reliability and signal strength.
+
+        Args:
+            agent_signals: Dict of agent name -> signal data
+
+        Returns:
+            Weighted score from -100 to +100
+        """
+        if not agent_signals:
+            return 0.0
+
+        # Agent weights based on reliability and importance
+        # Higher weight = more influence on final decision
+        agent_weights = {
+            "TechnicalAgent": 1.0,  # Technical analysis is important
+            "ChipAgent": 1.2,  # Chip distribution is very important for A-shares
+            "FundamentalAgent": 0.8,  # Fundamental takes longer to materialize
+            "ValuationAgent": 1.0,  # Valuation is key for long-term
+            "NewsSentimentAgent": 0.6,  # News can be noisy
+            "StyleAgent": 0.5,  # Style is supplementary
+        }
+
+        total_weighted_score = 0.0
+        total_weight = 0.0
+
+        for agent_name, signal_data in agent_signals.items():
+            signal = signal_data.get("signal", "hold").lower()
+            confidence = signal_data.get("confidence", 0)
+
+            # Skip failed agents (confidence == 0 usually means failure)
+            if confidence <= 0:
+                continue
+
+            # Get weight for this agent (default 1.0)
+            weight = agent_weights.get(agent_name, 1.0)
+
+            # Calculate contribution: buy = +confidence, sell = -confidence, hold = 0
+            if signal == "buy":
+                contribution = confidence * weight
+            elif signal == "sell":
+                contribution = -confidence * weight
+            else:  # hold
+                contribution = 0
+
+            total_weighted_score += contribution
+            total_weight += weight
+
+        # Normalize to -100 to +100 range
+        normalized_score = (total_weighted_score / (100 * total_weight)) * 100 if total_weight > 0 else 0.0
+
+        # Clamp to range
+        return max(-100.0, min(100.0, normalized_score))
 
     def _build_decision_dashboard(
         self,

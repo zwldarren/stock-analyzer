@@ -228,11 +228,15 @@ class PortfolioManagerAgent(BaseAgent):
                 self._logger.debug(f"[{stock_code}] LLM决策成功: {result}")
                 return result
             else:
-                self._logger.warning(f"[{stock_code}] LLM返回格式无效，使用规则回退")
+                weighted_score = consensus_data.get("weighted_score", 0)
+                self._logger.warning(
+                    f"[{stock_code}] LLM返回格式无效(weighted_score={weighted_score:.1f})，使用规则回退"
+                )
                 return self._make_rule_based_decision(agent_signals, consensus_data, max_position)
 
         except Exception as e:
-            self._logger.warning(f"[{stock_code}] LLM决策失败: {e}，使用规则回退")
+            weighted_score = consensus_data.get("weighted_score", 0)
+            self._logger.warning(f"[{stock_code}] LLM决策失败: {e}，使用规则回退(weighted_score={weighted_score:.1f})")
             return self._make_rule_based_decision(agent_signals, consensus_data, max_position)
 
     def _make_rule_based_decision(
