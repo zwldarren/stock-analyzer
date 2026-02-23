@@ -5,7 +5,9 @@ Contains AnalysisResult, SearchResult, and SearchResponse.
 """
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 
 @dataclass(slots=True)
@@ -133,3 +135,30 @@ class SearchResponse:
             "error_message": self.error_message,
             "search_time": self.search_time,
         }
+
+
+class NewsItemForFilter(BaseModel):
+    """News item for AI filtering, contains complete search result info."""
+
+    index: int = Field(description="News index, starting from 0")
+    title: str = Field(description="News title")
+    snippet: str = Field(description="News snippet/summary")
+    source: str = Field(description="Source domain")
+    url: str = Field(description="News URL")
+    published_date: str | None = Field(default=None, description="Published date if available")
+
+
+class NewsFilterResult(BaseModel):
+    """Single news filter result from AI."""
+
+    index: int = Field(description="News index")
+    is_relevant: bool = Field(description="Whether the news is relevant to stock investment analysis")
+    freshness: Literal["fresh", "acceptable", "stale"] = Field(
+        description="Timeliness: fresh=within 2 days, acceptable=3-7 days, stale=over 7 days"
+    )
+
+
+class NewsFilterResponse(BaseModel):
+    """AI news filtering response."""
+
+    results: list[NewsFilterResult] = Field(description="Filter results for each news item")

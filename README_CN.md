@@ -96,18 +96,9 @@ uv run ashare-analyzer --no-notify
 | OpenAI | `openai/gpt-5.2` | [platform.openai.com](https://platform.openai.com/) |
 | Gemini | `gemini/gemini-3.1-pro-preview` | [aistudio.google.com](https://aistudio.google.com/) |
 | Claude | `anthropic/claude-sonnet-4-6` | [console.anthropic.com](https://console.anthropic.com/) |
-| Azure | `azure/gpt-5.2` | Azure Portal |
 
 完整提供商列表：[LiteLLM Providers](https://docs.litellm.ai/docs/providers)
 
-### 备选模型
-
-配置备选模型实现自动故障转移：
-
-```bash
-LLM_FALLBACK_MODEL=gemini/gemini-3-flash-preview
-LLM_FALLBACK_API_KEY=your_fallback_key
-```
 
 ### 通知渠道
 
@@ -137,6 +128,23 @@ TAVILY_API_KEY=your_tavily_key
 
 # SerpAPI（备选）
 SERPAPI_API_KEY=your_serpapi_key
+```
+
+### 新闻过滤器配置
+
+新闻过滤器使用 AI 过滤掉低相关性和过时的新闻结果。
+
+| 环境变量 | 说明 | 默认值 |
+|----------|------|--------|
+| `NEWS_FILTER_ENABLED` | 启用/禁用新闻过滤器 | `true` |
+| `NEWS_FILTER_MIN_RESULTS` | 过滤后的最小结果数 | `3` |
+| `NEWS_FILTER_MODEL` | 用于过滤的 LLM 模型（可选，不配置则使用 LLM_MODEL） | - |
+
+示例：
+```bash
+NEWS_FILTER_ENABLED=true
+NEWS_FILTER_MIN_RESULTS=3
+NEWS_FILTER_MODEL=deepseek/deepseek-chat
 ```
 
 ### 定时任务配置

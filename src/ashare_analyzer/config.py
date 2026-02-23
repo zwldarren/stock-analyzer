@@ -139,6 +139,16 @@ class SearchConfig(BaseSettings):
         return _parse_comma_list(self.serpapi_keys_str)
 
 
+class NewsFilterConfig(BaseSettings):
+    """News filter configuration."""
+
+    model_config = _COMMON_CONFIG
+
+    news_filter_enabled: EnvBool = Field(default=True, validation_alias="NEWS_FILTER_ENABLED")
+    news_filter_min_results: int = Field(default=3, ge=1, le=10, validation_alias="NEWS_FILTER_MIN_RESULTS")
+    news_filter_model: str | None = Field(default=None, validation_alias="NEWS_FILTER_MODEL")
+
+
 class NotificationChannelConfig(BaseSettings):
     """Notification channel configuration."""
 
@@ -292,6 +302,7 @@ class Config(BaseSettings):
     # Nested configurations - each loads environment variables independently
     ai: AIConfig = Field(default_factory=AIConfig)
     search: SearchConfig = Field(default_factory=SearchConfig)
+    news_filter: NewsFilterConfig = Field(default_factory=NewsFilterConfig)
     notification_channel: NotificationChannelConfig = Field(default_factory=NotificationChannelConfig)
     notification_message: NotificationMessageConfig = Field(default_factory=NotificationMessageConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)

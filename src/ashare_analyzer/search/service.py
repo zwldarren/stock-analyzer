@@ -9,12 +9,15 @@ import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from ashare_analyzer.config import get_config
 from ashare_analyzer.models import SearchResponse, SearchResult
 from ashare_analyzer.search.base import (
     ApiKeyProviderConfig,
+    ProviderConfig,
     ProviderRegistry,
     SearxngProviderConfig,
 )
+from ashare_analyzer.search.filter import NewsFilter
 
 if TYPE_CHECKING:
     from ashare_analyzer.storage.database import DatabaseManager
@@ -31,6 +34,7 @@ class SearchService:
     2. Automatic failover to next provider
     3. Database caching for news results
     4. Automatic English keywords for HK/US stocks
+    5. Akshare as default provider for A-shares (no filtering needed)
     """
 
     # Cache settings
@@ -46,6 +50,7 @@ class SearchService:
         searxng_username: str | None = None,
         searxng_password: str | None = None,
         db: "DatabaseManager | None" = None,
+        llm_client=None,
     ):
         """
         Initialize the search service.
@@ -59,12 +64,23 @@ class SearchService:
             searxng_username: SearXNG Basic Auth username.
             searxng_password: SearXNG Basic Auth password.
             db: DatabaseManager instance for caching news.
+            llm_client: LLM client for news filtering.
         """
         self._providers = []
         self._db = db
 
+        # Initialize news filter
+        self._news_filter: NewsFilter | None = None
+        self._init_news_filter(llm_client)
+
         # Use registry to create providers
-        # Order: Tavily -> Brave -> SerpAPI -> Bocha -> SearXNG
+        # Order: Akshare -> Tavily -> Brave -> SerpAPI -> Bocha -> SearXNG
+
+        # 0. Akshare (default, highest priority, free, no API key)
+        akshare_provider = ProviderRegistry.create_provider("akshare", ProviderConfig(enabled=True, priority=0))
+        if akshare_provider:
+            self._providers.append(akshare_provider)
+            logger.debug("已配置 akshare 个股新闻（默认数据源）")
 
         # 1. Tavily
         if tavily_keys:
@@ -111,6 +127,20 @@ class SearchService:
     def set_db(self, db: "DatabaseManager") -> None:
         """Set database manager for caching."""
         self._db = db
+
+    def _init_news_filter(self, llm_client=None) -> None:
+        """Initialize news filter with LLM client."""
+        try:
+            config = get_config()
+            if config.news_filter.news_filter_enabled:
+                self._news_filter = NewsFilter(
+                    config=config.news_filter,
+                    llm_client=llm_client,
+                )
+                logger.debug("新闻过滤器已初始化")
+        except Exception as e:
+            logger.warning(f"新闻过滤器初始化失败: {e}")
+            self._news_filter = None
 
     def _get_cached_news(self, stock_code: str, dimension: str = "latest_news") -> list[SearchResult] | None:
         """
@@ -216,6 +246,18 @@ class SearchService:
             return True
         return bool(code.isdigit() and len(code) == 5)
 
+    @staticmethod
+    def _is_ashare(stock_code: str) -> bool:
+        """Check if the stock is A-share (mainland China)."""
+        code = stock_code.strip()
+        # A-shares: 6-digit codes starting with 0, 3, 6
+        return bool(re.match(r"^[036]\d{5}$", code))
+
+    @staticmethod
+    def _should_skip_filter(provider_name: str) -> bool:
+        """Check if the provider should skip news filtering."""
+        return provider_name.lower() in ("aksharenews", "akshare")
+
     @property
     def is_available(self) -> bool:
         """Check if any search engine is available."""
@@ -270,6 +312,7 @@ class SearchService:
         Search for stock-related news.
 
         Uses the first successful search provider (no aggregation).
+        For A-shares, uses Akshare as default provider (no filtering needed).
 
         Args:
             stock_code: Stock code.
@@ -301,15 +344,43 @@ class SearchService:
         else:  # Tuesday(1) - Friday(4)
             search_days = 1
 
-        # Build search query (select language based on stock type)
+        is_ashare = self._is_ashare(stock_code)
         is_foreign = self._is_foreign_stock(stock_code)
+
+        # For A-shares, use Akshare directly (stock code as query)
+        if is_ashare and not focus_keywords:
+            # Find akshare provider
+            akshare_provider = None
+            for provider in self._providers:
+                if provider.name.lower() in ("aksharenews", "akshare"):
+                    akshare_provider = provider
+                    break
+
+            if akshare_provider and akshare_provider.is_available:
+                logger.debug(f"使用 Akshare 获取 A 股新闻: {stock_code}")
+                response = akshare_provider.search(stock_code, max_results)
+
+                if response.success:
+                    # Save to cache
+                    self._save_news_to_cache(
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        dimension="latest_news",
+                        query=stock_code,
+                        response=response,
+                    )
+                    logger.debug(f"使用 {response.provider} 搜索成功，获取 {len(response.results)} 条结果")
+                    # Akshare news don't need filtering (stock-specific)
+                    return response
+
+        # Build search query (select language based on stock type)
         if focus_keywords:
             query = " ".join(focus_keywords)
         elif is_foreign:
             # Use English keywords for HK/US stocks
             query = f"{stock_name} {stock_code} stock latest news"
         else:
-            # Use Chinese keywords for A-shares
+            # Use Chinese keywords for other stocks
             query = f"{stock_name} {stock_code} 股票 最新消息"
 
         logger.debug(f"搜索股票新闻: {stock_name}({stock_code}), query='{query}', 时间范围: 近{search_days}天")
@@ -329,5 +400,26 @@ class SearchService:
             logger.debug(f"使用 {response.provider} 搜索成功，获取 {len(response.results)} 条结果")
         else:
             logger.warning(f"所有搜索引擎都失败: {response.error_message}")
+
+        # Apply news filter (skip for akshare provider)
+        should_filter = not self._should_skip_filter(response.provider)
+        if self._news_filter and response.success and response.results and should_filter:
+            try:
+                filtered_results = self._news_filter.filter(
+                    results=response.results,
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                )
+                response = SearchResponse(
+                    query=response.query,
+                    results=filtered_results,
+                    provider=response.provider,
+                    success=response.success,
+                    error_message=response.error_message,
+                    search_time=response.search_time,
+                )
+                logger.debug(f"新闻过滤完成: {len(response.results)} 条结果")
+            except Exception as e:
+                logger.warning(f"新闻过滤失败: {e}")
 
         return response

@@ -13,7 +13,9 @@ from ashare_analyzer.search.base import (
     SearxngProviderConfig,
     register_builtin_providers,
 )
+from ashare_analyzer.search.filter import NewsFilter
 from ashare_analyzer.search.impl import (
+    AkshareNewsProvider,
     BochaSearchProvider,
     BraveSearchProvider,
     SearxngSearchProvider,
@@ -24,11 +26,13 @@ from ashare_analyzer.search.service import SearchService
 
 __all__ = [
     "SearchService",
+    "NewsFilter",
     "ProviderConfig",
     "ApiKeyProviderConfig",
     "SearxngProviderConfig",
     "BaseSearchProvider",
     "ApiKeySearchProvider",
+    "AkshareNewsProvider",
     "TavilySearchProvider",
     "SerpAPISearchProvider",
     "BraveSearchProvider",

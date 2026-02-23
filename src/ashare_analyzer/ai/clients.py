@@ -250,3 +250,39 @@ def get_llm_client() -> LiteLLMClient | None:
     except AnalysisError as e:
         logger.error(f"创建 LLM 客户端失败: {e}")
         return None
+
+
+def get_filter_llm_client() -> LiteLLMClient | None:
+    """
+    Get LLM client for news filtering.
+
+    Uses a smaller/faster model if configured, otherwise falls back to main model.
+
+    Returns:
+        LiteLLMClient instance for filtering, or None if not configured
+    """
+    try:
+        config = get_config()
+        if not config.ai.llm_api_key:
+            logger.warning("未配置 LLM API Key")
+            return None
+
+        # Use filter-specific model if configured, otherwise use main model
+        model = config.news_filter.news_filter_model or config.ai.llm_model
+
+        client = LiteLLMClient(
+            model=model,
+            api_key=config.ai.llm_api_key,
+            base_url=config.ai.llm_base_url,
+        )
+
+        if client.is_available():
+            logger.debug(f"Filter LLM client created with model: {model}")
+            return client
+        else:
+            logger.warning("Filter LLM 客户端初始化失败")
+            return None
+
+    except Exception as e:
+        logger.error(f"创建 Filter LLM 客户端失败: {e}")
+        return None

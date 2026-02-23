@@ -72,7 +72,7 @@ uv run ashare-analyzer
 uv run ashare-analyzer --debug
 
 # Analyze specific stocks
-uv run ashare-analyzer --stocks 600519,000001
+uv run ashare-analyzer --stocks 600519,300750
 
 # Scheduled mode (runs daily at configured time)
 uv run ashare-analyzer --schedule
@@ -93,21 +93,12 @@ Supports 100+ providers via LiteLLM format:
 | Provider | Model Example | API Key Source |
 |----------|---------------|----------------|
 | DeepSeek | `deepseek/deepseek-reasoner` | [platform.deepseek.com](https://platform.deepseek.com/) |
-| OpenAI | `openai/gpt-4.1` | [platform.openai.com](https://platform.openai.com/) |
-| Gemini | `gemini/gemini-2.5-pro` | [aistudio.google.com](https://aistudio.google.com/) |
-| Claude | `anthropic/claude-sonnet-4-5` | [console.anthropic.com](https://console.anthropic.com/) |
-| Azure | `azure/gpt-4.1` | Azure Portal |
+| OpenAI | `openai/gpt-5.2` | [platform.openai.com](https://platform.openai.com/) |
+| Gemini | `gemini/gemini-3.1-pro-preview` | [aistudio.google.com](https://aistudio.google.com/) |
+| Claude | `anthropic/claude-sonnet-4-6` | [console.anthropic.com](https://console.anthropic.com/) |
 
 Full provider list: [LiteLLM Providers](https://docs.litellm.ai/docs/providers)
 
-### Fallback Model
-
-Configure a fallback model for automatic failover:
-
-```bash
-LLM_FALLBACK_MODEL=gemini/gemini-2.5-flash
-LLM_FALLBACK_API_KEY=your_fallback_key
-```
 
 ### Notification Channels
 
@@ -137,6 +128,23 @@ TAVILY_API_KEY=your_tavily_key
 
 # SerpAPI (alternative)
 SERPAPI_API_KEY=your_serpapi_key
+```
+
+### News Filter Configuration
+
+The news filter uses AI to filter out low-relevance and stale news results.
+
+| Environment Variable | Description | Default |
+|------------------|-------------|---------|
+| `NEWS_FILTER_ENABLED` | Enable/disable news filter | `true` |
+| `NEWS_FILTER_MIN_RESULTS` | Minimum results after filtering | `3` |
+| `NEWS_FILTER_MODEL` | LLM model for filtering (optional, falls back to LLM_MODEL) | - |
+
+Example:
+```bash
+NEWS_FILTER_ENABLED=true
+NEWS_FILTER_MIN_RESULTS=3
+NEWS_FILTER_MODEL=deepseek/deepseek-chat
 ```
 
 ## Development

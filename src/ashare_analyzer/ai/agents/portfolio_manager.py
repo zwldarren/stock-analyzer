@@ -245,6 +245,11 @@ class PortfolioManagerAgent(BaseAgent):
         weighted_score = consensus_data.get("weighted_score", 0)
         risk_flags = consensus_data.get("risk_flags", [])
 
+        # Count signals by direction for risk assessment
+        buy_count = sum(1 for s in agent_signals.values() if s.get("signal", "").lower() == "buy")
+        sell_count = sum(1 for s in agent_signals.values() if s.get("signal", "").lower() == "sell")
+        total_agents = len(agent_signals)
+
         # Determine action
         if weighted_score >= 30:
             action = "BUY"
@@ -271,13 +276,36 @@ class PortfolioManagerAgent(BaseAgent):
         else:
             position_ratio = 0.0
 
+        # Build risk assessment based on agent signals
+        concerns = []
+        if risk_flags:
+            concerns.extend(risk_flags[:3])
+        if sell_count > buy_count and action == "BUY":
+            concerns.append(f"多数分析师看空({sell_count}/{total_agents})但趋势看多，存在分歧")
+        if buy_count > sell_count and action == "SELL":
+            concerns.append(f"多数分析师看多({buy_count}/{total_agents})但趋势看空，存在分歧")
+        if confidence < 50:
+            concerns.append("置信度偏低，建议谨慎")
+
+        # Determine risk level
+        if len(concerns) >= 3:
+            risk_level = "high"
+        elif len(concerns) >= 1 or confidence < 60:
+            risk_level = "medium"
+        else:
+            risk_level = "low"
+
         return {
             "action": action,
             "confidence": confidence,
             "position_ratio": position_ratio,
             "reasoning": reasoning,
             "key_factors": [f"加权得分: {weighted_score:.1f}"],
-            "risk_level": "high" if len(risk_flags) >= 2 else "medium" if risk_flags else "low",
+            "risk_level": risk_level,
+            "risk_assessment": {
+                "level": risk_level,
+                "concerns": concerns,
+            },
         }
 
     def _build_decision_prompt(

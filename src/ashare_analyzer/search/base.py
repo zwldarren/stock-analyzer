@@ -321,6 +321,7 @@ def register_builtin_providers() -> None:
     """Register all built-in search engine providers."""
     # Delay import to avoid circular dependencies
     from ashare_analyzer.search.impl import (
+        AkshareNewsProvider,
         BochaSearchProvider,
         BraveSearchProvider,
         SearxngSearchProvider,
@@ -328,35 +329,36 @@ def register_builtin_providers() -> None:
         TavilySearchProvider,
     )
 
-    # Priority 1: SearXNG (self-hosted, completely free)
+    ProviderRegistry.register(
+        "akshare",
+        ProviderConfig,
+        lambda config: AkshareNewsProvider(config),
+    )
+
     ProviderRegistry.register(
         "searxng",
         SearxngProviderConfig,
         lambda config: SearxngSearchProvider(config),
     )
 
-    # Priority 2: Tavily (free tier available)
     ProviderRegistry.register(
         "tavily",
         ApiKeyProviderConfig,
         lambda config: TavilySearchProvider(config),
     )
 
-    # Priority 3: Brave Search (free tier available)
     ProviderRegistry.register(
         "brave",
         ApiKeyProviderConfig,
         lambda config: BraveSearchProvider(config),
     )
 
-    # Priority 4: SerpAPI (free tier available)
     ProviderRegistry.register(
         "serpapi",
         ApiKeyProviderConfig,
         lambda config: SerpAPISearchProvider(config),
     )
 
-    # Priority 5: Bocha (paid only, Chinese optimized)
     ProviderRegistry.register(
         "bocha",
         ApiKeyProviderConfig,

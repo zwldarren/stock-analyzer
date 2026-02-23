@@ -92,3 +92,60 @@ class TestLiteLLMClientGenerateWithTool:
         )
 
         assert result is None
+
+
+class TestGetFilterLLMClient:
+    """Tests for get_filter_llm_client function."""
+
+    def test_returns_none_when_no_api_key(self):
+        """Test that get_filter_llm_client returns None when no API key configured."""
+        from ashare_analyzer.ai.clients import get_filter_llm_client
+
+        mock_config = MagicMock()
+        mock_config.ai.llm_api_key = None
+
+        with patch("ashare_analyzer.ai.clients.get_config", return_value=mock_config):
+            result = get_filter_llm_client()
+
+        assert result is None
+
+    def test_uses_filter_model_when_configured(self):
+        """Test that get_filter_llm_client uses filter-specific model when configured."""
+        from ashare_analyzer.ai.clients import get_filter_llm_client
+
+        mock_config = MagicMock()
+        mock_config.ai.llm_api_key = "test-key"
+        mock_config.ai.llm_model = "deepseek/deepseek-reasoner"
+        mock_config.ai.llm_base_url = None
+        mock_config.news_filter.news_filter_model = "openai/gpt-4o-mini"
+
+        with patch("ashare_analyzer.ai.clients.get_config", return_value=mock_config):
+            result = get_filter_llm_client()
+
+        assert result is not None
+        assert result.model == "openai/gpt-4o-mini"
+
+    def test_falls_back_to_main_model_when_no_filter_model(self):
+        """Test that get_filter_llm_client uses main model when filter model not configured."""
+        from ashare_analyzer.ai.clients import get_filter_llm_client
+
+        mock_config = MagicMock()
+        mock_config.ai.llm_api_key = "test-key"
+        mock_config.ai.llm_model = "deepseek/deepseek-reasoner"
+        mock_config.ai.llm_base_url = None
+        mock_config.news_filter.news_filter_model = None
+
+        with patch("ashare_analyzer.ai.clients.get_config", return_value=mock_config):
+            result = get_filter_llm_client()
+
+        assert result is not None
+        assert result.model == "deepseek/deepseek-reasoner"
+
+    def test_returns_none_on_exception(self):
+        """Test that get_filter_llm_client returns None on exception."""
+        from ashare_analyzer.ai.clients import get_filter_llm_client
+
+        with patch("ashare_analyzer.ai.clients.get_config", side_effect=Exception("Config error")):
+            result = get_filter_llm_client()
+
+        assert result is None

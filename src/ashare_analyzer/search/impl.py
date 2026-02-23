@@ -16,6 +16,7 @@ from ashare_analyzer.search.base import (
     ApiKeyProviderConfig,
     ApiKeySearchProvider,
     BaseSearchProvider,
+    ProviderConfig,
     SearxngProviderConfig,
 )
 
@@ -597,3 +598,114 @@ class SearxngSearchProvider(BaseSearchProvider):
             error_msg = f"未知错误: {str(e)}"
             logger.error(f"[SearXNG] {error_msg}")
             return SearchResponse(query=query, results=[], provider=self.name, success=False, error_message=error_msg)
+
+
+class AkshareNewsProvider(BaseSearchProvider):
+    """
+    Akshare Stock News Provider.
+
+    Features:
+    - Free stock news from East Money
+    - No API key required
+    - Returns up to 100 news items per stock
+    - Direct stock-specific news (no filtering needed)
+
+    Docs: https://akshare.akfamily.xyz/data/stock/stock.html#id221
+    """
+
+    # 标记此 provider 不需要过滤
+    skip_filter: bool = True
+
+    def __init__(self, config: ProviderConfig | None = None):
+        super().__init__(config or ProviderConfig(enabled=True, priority=1), "AkshareNews")
+
+    @property
+    def is_available(self) -> bool:
+        """Akshare is always available."""
+        return True
+
+    def _do_search(self, query: str, max_results: int, days: int = 7) -> SearchResponse:
+        """
+        Execute Akshare stock news search.
+
+        Args:
+            query: Stock code (e.g., "603777")
+            max_results: Maximum number of results
+            days: Time range (not used, akshare returns recent 100 items)
+        """
+        try:
+            import akshare as ak
+        except ImportError:
+            return SearchResponse(
+                query=query,
+                results=[],
+                provider=self.name,
+                success=False,
+                error_message="akshare not installed, run: pip install akshare",
+            )
+
+        try:
+            # 使用股票代码获取个股新闻
+            df = ak.stock_news_em(symbol=query)
+
+            if df is None or df.empty:
+                return SearchResponse(
+                    query=query,
+                    results=[],
+                    provider=self.name,
+                    success=True,
+                    error_message="No news found for this stock",
+                )
+
+            # 解析结果
+            results = []
+            for _, row in df.iterrows():
+                # 提取字段
+                title = str(row.get("新闻标题", "")) if "新闻标题" in row else ""
+                snippet = str(row.get("新闻内容", ""))[:500] if "新闻内容" in row else ""
+                url = str(row.get("新闻链接", "")) if "新闻链接" in row else ""
+                source = str(row.get("文章来源", "")) if "文章来源" in row else ""
+                published_date = str(row.get("发布时间", "")) if "发布时间" in row else None
+
+                # 清理日期格式
+                if published_date:
+                    # 尝试解析日期
+                    try:
+                        # 格式通常是 "2025-06-16 10:30:00"
+                        if len(published_date) > 10:
+                            published_date = published_date[:10]
+                    except Exception:
+                        pass
+
+                results.append(
+                    SearchResult(
+                        title=title,
+                        snippet=snippet,
+                        url=url,
+                        source=source or "东方财富",
+                        published_date=published_date,
+                    )
+                )
+
+                if len(results) >= max_results:
+                    break
+
+            logger.info(f"[AkshareNews] 获取股票 {query} 新闻成功，返回 {len(results)} 条结果")
+
+            return SearchResponse(
+                query=query,
+                results=results,
+                provider=self.name,
+                success=True,
+            )
+
+        except Exception as e:
+            error_msg = f"获取新闻失败: {str(e)}"
+            logger.error(f"[AkshareNews] {error_msg}")
+            return SearchResponse(
+                query=query,
+                results=[],
+                provider=self.name,
+                success=False,
+                error_message=error_msg,
+            )

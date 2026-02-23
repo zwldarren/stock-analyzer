@@ -94,6 +94,7 @@ def get_search_service() -> SearchService:
     Returns:
         SearchService singleton instance
     """
+    from ashare_analyzer.ai.clients import get_filter_llm_client
     from ashare_analyzer.search import SearchService
 
     config = get_config()
@@ -105,6 +106,7 @@ def get_search_service() -> SearchService:
         searxng_base_url=config.search.searxng_base_url,
         searxng_username=config.search.searxng_username,
         searxng_password=config.search.searxng_password,
+        llm_client=get_filter_llm_client(),
     )
     service.set_db(get_db())
     return service

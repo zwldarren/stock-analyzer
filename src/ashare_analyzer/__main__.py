@@ -14,6 +14,7 @@ import atexit
 import logging
 import os
 import sys
+import warnings
 from datetime import datetime
 
 import click
@@ -27,6 +28,13 @@ from ashare_analyzer.utils import get_console, get_display
 from ashare_analyzer.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
+
+# Suppress warnings from external libraries before importing them
+warnings.filterwarnings("ignore", message="invalid escape sequence", category=SyntaxWarning)
+warnings.filterwarnings("ignore", message="enable_cleanup_closed", category=DeprecationWarning)
+
+# Suppress tqdm progress bars from efinance library
+os.environ.setdefault("TQDM_DISABLE", "1")
 
 
 def _cleanup_resources() -> None:
