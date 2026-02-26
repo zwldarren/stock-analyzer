@@ -225,6 +225,14 @@ class PortfolioManagerAgent(BaseAgent):
                 # Map signal to action for backward compatibility
                 action_map = {"buy": "BUY", "sell": "SELL", "hold": "HOLD"}
                 result["action"] = action_map.get(result.get("signal", "hold").lower(), "HOLD")
+
+                # Ensure risk_assessment is properly structured for consistency
+                if "risk_assessment" not in result:
+                    result["risk_assessment"] = {
+                        "level": result.get("risk_level", "medium"),
+                        "concerns": result.get("risk_factors", []),
+                    }
+
                 self._logger.debug(f"[{stock_code}] LLM决策成功: {result}")
                 return result
             else:

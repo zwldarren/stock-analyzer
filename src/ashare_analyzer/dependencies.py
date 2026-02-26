@@ -29,7 +29,6 @@ _tushare_limiter = AsyncRateLimiter(rate=0.5, burst=1)
 _efinance_limiter = AsyncRateLimiter(rate=5.0, burst=10)
 _baostock_limiter = AsyncRateLimiter(rate=1.0, burst=2)
 _yfinance_limiter = AsyncRateLimiter(rate=1.0, burst=2)
-_pytdx_limiter = AsyncRateLimiter(rate=5.0, burst=10)
 
 
 @cache
@@ -63,7 +62,6 @@ def get_data_manager() -> DataManager:
         "efinance": _efinance_limiter,
         "baostock": _baostock_limiter,
         "yfinance": _yfinance_limiter,
-        "pytdx": _pytdx_limiter,
     }
     return DataManager(config=config, storage=get_db(), rate_limiters=rate_limiters)
 

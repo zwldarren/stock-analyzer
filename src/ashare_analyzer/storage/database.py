@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from ashare_analyzer.config import get_config
 from ashare_analyzer.exceptions import StorageError
 from ashare_analyzer.models import SearchResponse
-from ashare_analyzer.storage.models import AnalysisHistory, Base, NewsIntel, StockDaily
+from ashare_analyzer.storage.models import AnalysisHistory, Base, ChipData, NewsIntel, StockDaily
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +276,102 @@ class DatabaseManager:
                 raise
 
         return saved_count
+
+    def get_chip_data(self, code: str, target_date: date | None = None) -> ChipData | None:
+        """
+        获取指定股票的筹码分布数据
+
+        Args:
+            code: 股票代码
+            target_date: 目标日期（默认今天）
+
+        Returns:
+            ChipData 对象或 None
+        """
+        if target_date is None:
+            target_date = date.today()
+
+        with self.get_session() as session:
+            result = session.execute(
+                select(ChipData).where(ChipData.code == code).order_by(desc(ChipData.date)).limit(1)
+            ).scalar_one_or_none()
+
+            return result
+
+    def save_chip_data(
+        self,
+        code: str,
+        chip_data: dict[str, Any],
+        data_source: str = "akshare",
+    ) -> bool:
+        """
+        保存筹码分布数据到数据库
+
+        Args:
+            code: 股票代码
+            chip_data: 筹码分布数据字典
+            data_source: 数据来源
+
+        Returns:
+            是否保存成功
+        """
+        if not chip_data:
+            logger.warning(f"筹码数据为空，跳过保存 {code}")
+            return False
+
+        try:
+            # 解析日期
+            chip_date = chip_data.get("date")
+            if isinstance(chip_date, str):
+                chip_date = datetime.strptime(chip_date, "%Y-%m-%d").date()
+            elif isinstance(chip_date, (datetime, pd.Timestamp)):
+                chip_date = chip_date.date()
+            elif chip_date is None:
+                chip_date = date.today()
+
+            with self.get_session() as session:
+                # 检查是否已存在
+                existing = session.execute(
+                    select(ChipData).where(and_(ChipData.code == code, ChipData.date == chip_date))
+                ).scalar_one_or_none()
+
+                if existing:
+                    # 更新现有记录
+                    existing.profit_ratio = chip_data.get("profit_ratio", 0.0)
+                    existing.avg_cost = chip_data.get("avg_cost", 0.0)
+                    existing.cost_90_low = chip_data.get("cost_90_low", 0.0)
+                    existing.cost_90_high = chip_data.get("cost_90_high", 0.0)
+                    existing.concentration_90 = chip_data.get("concentration_90", 0.0)
+                    existing.cost_70_low = chip_data.get("cost_70_low", 0.0)
+                    existing.cost_70_high = chip_data.get("cost_70_high", 0.0)
+                    existing.concentration_70 = chip_data.get("concentration_70", 0.0)
+                    existing.data_source = data_source
+                    existing.updated_at = datetime.now()
+                    logger.debug(f"更新 {code} 筹码数据: {chip_date}")
+                else:
+                    # 创建新记录
+                    record = ChipData(
+                        code=code,
+                        date=chip_date,
+                        profit_ratio=chip_data.get("profit_ratio", 0.0),
+                        avg_cost=chip_data.get("avg_cost", 0.0),
+                        cost_90_low=chip_data.get("cost_90_low", 0.0),
+                        cost_90_high=chip_data.get("cost_90_high", 0.0),
+                        concentration_90=chip_data.get("concentration_90", 0.0),
+                        cost_70_low=chip_data.get("cost_70_low", 0.0),
+                        cost_70_high=chip_data.get("cost_70_high", 0.0),
+                        concentration_70=chip_data.get("concentration_70", 0.0),
+                        data_source=data_source,
+                    )
+                    session.add(record)
+                    logger.debug(f"保存 {code} 筹码数据: {chip_date}")
+
+                session.commit()
+                return True
+
+        except Exception as e:
+            logger.error(f"保存 {code} 筹码数据失败: {e}")
+            return False
 
     def save_news_intel(
         self,

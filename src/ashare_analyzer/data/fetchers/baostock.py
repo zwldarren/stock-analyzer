@@ -91,13 +91,23 @@ class BaostockFetcher(BaseFetcher):
 
         finally:
             try:
-                logout_result = await asyncio.to_thread(bs.logout)
-                if logout_result.error_code == "0":
+
+                def _logout():
+                    try:
+                        return bs.logout()
+                    except OSError:
+                        # Socket already closed or invalid file descriptor
+                        return None
+
+                logout_result = await asyncio.to_thread(_logout)
+                if logout_result and logout_result.error_code == "0":
                     logger.debug("Baostock 登出成功")
-                else:
-                    logger.warning(f"Baostock 登出异常: {logout_result.error_msg}")
+                elif logout_result:
+                    logger.debug(f"Baostock 登出异常: {logout_result.error_msg}")
+                # Add small delay to allow socket cleanup and avoid ResourceWarning
+                await asyncio.sleep(0.1)
             except Exception as e:
-                logger.warning(f"Baostock 登出时发生错误: {e}")
+                logger.debug(f"Baostock 登出时发生错误: {e}")
 
     def _convert_stock_code(self, stock_code: str) -> str:
         code = stock_code.strip()

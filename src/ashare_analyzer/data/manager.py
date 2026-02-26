@@ -12,7 +12,6 @@ from ashare_analyzer.data.cache import TTLCache
 from ashare_analyzer.data.fetchers.akshare import AkshareFetcher
 from ashare_analyzer.data.fetchers.baostock import BaostockFetcher
 from ashare_analyzer.data.fetchers.efinance import EfinanceFetcher
-from ashare_analyzer.data.fetchers.pytdx import PytdxFetcher
 from ashare_analyzer.data.fetchers.tushare import TushareFetcher
 from ashare_analyzer.data.fetchers.yfinance import YfinanceFetcher
 from ashare_analyzer.infrastructure.rate_limiter import AsyncRateLimiter
@@ -54,7 +53,6 @@ class DataManager:
             (EfinanceFetcher, "efinance"),
             (AkshareFetcher, "akshare"),
             (TushareFetcher, "tushare"),
-            (PytdxFetcher, "pytdx"),
             (BaostockFetcher, "baostock"),
             (YfinanceFetcher, "yfinance"),
         ]
@@ -130,18 +128,68 @@ class DataManager:
         return None
 
     async def get_chip_distribution(self, stock_code: str) -> ChipDistribution | None:
+        """
+        Get chip distribution data with database caching.
+
+        Args:
+            stock_code: Stock code
+
+        Returns:
+            ChipDistribution or None
+        """
+        from datetime import date
+
+        def _chip_from_dict(data: dict, source: str | None) -> ChipDistribution:
+            """Create ChipDistribution from dict."""
+            return ChipDistribution(
+                code=data.get("code", stock_code),
+                date=str(data.get("date", "")),
+                profit_ratio=float(data.get("profit_ratio", 0.0) or 0.0),
+                avg_cost=float(data.get("avg_cost", 0.0) or 0.0),
+                cost_90_low=float(data.get("cost_90_low", 0.0) or 0.0),
+                cost_90_high=float(data.get("cost_90_high", 0.0) or 0.0),
+                concentration_90=float(data.get("concentration_90", 0.0) or 0.0),
+                cost_70_low=float(data.get("cost_70_low", 0.0) or 0.0),
+                cost_70_high=float(data.get("cost_70_high", 0.0) or 0.0),
+                concentration_70=float(data.get("concentration_70", 0.0) or 0.0),
+                source=source if source else "database",
+            )
+
+        # 1. Try to get from database cache first
+        if self._storage is not None:
+            cached_data = self._storage.get_chip_data(stock_code)
+            # Check if data is from today (fresh enough)
+            if cached_data is not None and cached_data.date == date.today():
+                logger.debug(f"[DataManager] Got {stock_code} chip data from database cache")
+                return _chip_from_dict(cached_data.to_dict(), str(cached_data.data_source or "database"))
+
+        # 2. Fetch from API
         chip_sources = [
             ("AkshareFetcher", "akshare_chip"),
             ("TushareFetcher", "tushare_chip"),
             ("EfinanceFetcher", "efinance_chip"),
         ]
 
-        for fetcher_name, _source_key in chip_sources:
+        for fetcher_name, source_key in chip_sources:
             for fetcher in self._fetchers:
                 if fetcher.name == fetcher_name:
                     chip = await self._try_fetch(lambda f: f.get_chip_distribution(stock_code), fetcher)
                     if chip is not None:
+                        # 3. Save to database cache
+                        if self._storage is not None:
+                            self._storage.save_chip_data(
+                                stock_code,
+                                chip.to_dict(),
+                                data_source=source_key,
+                            )
                         return chip
+
+        # 4. If API failed, try to return cached data even if stale
+        if self._storage is not None:
+            cached_data = self._storage.get_chip_data(stock_code)
+            if cached_data is not None:
+                logger.debug(f"[DataManager] Using stale cached chip data for {stock_code} (API failed)")
+                return _chip_from_dict(cached_data.to_dict(), str(cached_data.data_source or "database_stale"))
 
         return None
 
@@ -159,7 +207,7 @@ class DataManager:
 
         for fetcher in self._fetchers:
             if hasattr(fetcher, "get_stock_name"):
-                name = self._try_fetch_sync(lambda f: f.get_stock_name(stock_code), fetcher)
+                name = await self._try_fetch(lambda f: f.get_stock_name(stock_code), fetcher)
                 if name:
                     self._cache.set(cache_key, name)
                     return name
@@ -264,13 +312,6 @@ class DataManager:
     async def _try_fetch(self, fetch_fn: Any, fetcher: Any) -> Any:
         try:
             return await fetch_fn(fetcher)
-        except Exception as e:
-            logger.debug(f"{fetcher.name} fetch failed: {e}")
-            return None
-
-    def _try_fetch_sync(self, fetch_fn: Any, fetcher: Any) -> Any:
-        try:
-            return fetch_fn(fetcher)
         except Exception as e:
             logger.debug(f"{fetcher.name} fetch failed: {e}")
             return None

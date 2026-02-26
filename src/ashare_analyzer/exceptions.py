@@ -2,6 +2,7 @@
 Exception hierarchy for stock analyzer.
 """
 
+import asyncio
 import logging
 from collections.abc import Callable
 from functools import wraps
@@ -89,7 +90,7 @@ def handle_errors(
     log_level: str = "error",
 ) -> Callable[[F], F]:
     """
-    Error handling decorator.
+    Error handling decorator (supports both sync and async functions).
 
     Unified handling of function exceptions, logging and returning default value.
 
@@ -103,30 +104,53 @@ def handle_errors(
         @handle_errors("获取数据失败", default_return=None)
         def fetch_data(code: str) -> dict | None:
             return api.get_data(code)
+
+        @handle_errors("异步获取失败", default_return=None)
+        async def async_fetch_data(code: str) -> dict | None:
+            return await api.get_data(code)
     """
 
     def decorator(func: F) -> F:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            try:
-                return func(*args, **kwargs)
-            except raise_on:
-                # Re-raise specified exceptions
-                raise
-            except Exception as e:
-                # Log the error
-                msg = f"{error_message}: {e}"
-                if log_level == "debug":
-                    logger.debug(msg)
-                elif log_level == "info":
-                    logger.info(msg)
-                elif log_level == "warning":
-                    logger.warning(msg)
-                else:
-                    logger.error(msg)
-                return default_return
+        def _log_error(e: Exception) -> None:
+            """Log error with appropriate level."""
+            msg = f"{error_message}: {e}"
+            if log_level == "debug":
+                logger.debug(msg)
+            elif log_level == "info":
+                logger.info(msg)
+            elif log_level == "warning":
+                logger.warning(msg)
+            else:
+                logger.error(msg)
 
-        return wrapper  # type: ignore[return-value]
+        if asyncio.iscoroutinefunction(func):
+            # Async wrapper for async functions
+            @wraps(func)
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    return await func(*args, **kwargs)
+                except raise_on:
+                    # Re-raise specified exceptions
+                    raise
+                except Exception as e:
+                    _log_error(e)
+                    return default_return
+
+            return async_wrapper  # type: ignore[return-value]
+        else:
+            # Sync wrapper for sync functions
+            @wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                try:
+                    return func(*args, **kwargs)
+                except raise_on:
+                    # Re-raise specified exceptions
+                    raise
+                except Exception as e:
+                    _log_error(e)
+                    return default_return
+
+            return wrapper  # type: ignore[return-value]
 
     return decorator
 

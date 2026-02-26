@@ -250,7 +250,6 @@ class DataSourceConfig(BaseSettings):
     efinance_priority: int = Field(default=0, ge=0, le=10, validation_alias="EFINANCE_PRIORITY")
     akshare_priority: int = Field(default=1, ge=0, le=10, validation_alias="AKSHARE_PRIORITY")
     tushare_priority: int = Field(default=2, ge=0, le=10, validation_alias="TUSHARE_PRIORITY")
-    pytdx_priority: int = Field(default=2, ge=0, le=10, validation_alias="PYTDX_PRIORITY")
     baostock_priority: int = Field(default=3, ge=0, le=10, validation_alias="BAOSTOCK_PRIORITY")
     yfinance_priority: int = Field(default=4, ge=0, le=10, validation_alias="YFINANCE_PRIORITY")
 

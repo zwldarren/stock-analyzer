@@ -91,6 +91,73 @@ class StockDaily(Base):
         }
 
 
+class ChipData(Base):
+    """
+    筹码分布数据模型
+
+    存储筹码分布数据，支持按日期缓存
+    """
+
+    __tablename__ = "chip_data"
+
+    # 主键
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # 股票代码
+    code = Column(String(10), nullable=False, index=True)
+
+    # 数据日期
+    date = Column(Date, nullable=False, index=True)
+
+    # 获利比例 (0-1)
+    profit_ratio = Column(Float, default=0.0)
+
+    # 平均成本
+    avg_cost = Column(Float, default=0.0)
+
+    # 90%筹码分布
+    cost_90_low = Column(Float, default=0.0)
+    cost_90_high = Column(Float, default=0.0)
+    concentration_90 = Column(Float, default=0.0)
+
+    # 70%筹码分布
+    cost_70_low = Column(Float, default=0.0)
+    cost_70_high = Column(Float, default=0.0)
+    concentration_70 = Column(Float, default=0.0)
+
+    # 数据来源
+    data_source = Column(String(50))
+
+    # 更新时间
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    # 唯一约束：同一股票同一日期只能有一条数据
+    __table_args__ = (
+        UniqueConstraint("code", "date", name="uix_chip_code_date"),
+        Index("ix_chip_code_date", "code", "date"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ChipData(code={self.code}, date={self.date}, profit_ratio={self.profit_ratio:.2%})>"
+
+    def to_dict(self) -> dict[str, Any]:
+        """转换为字典"""
+        return {
+            "code": self.code,
+            "date": str(self.date),
+            "profit_ratio": self.profit_ratio,
+            "avg_cost": self.avg_cost,
+            "cost_90_low": self.cost_90_low,
+            "cost_90_high": self.cost_90_high,
+            "concentration_90": self.concentration_90,
+            "cost_70_low": self.cost_70_low,
+            "cost_70_high": self.cost_70_high,
+            "concentration_70": self.concentration_70,
+            "data_source": self.data_source,
+        }
+
+
 class NewsIntel(Base):
     """
     新闻情报数据模型

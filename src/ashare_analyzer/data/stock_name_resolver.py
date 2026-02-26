@@ -11,8 +11,6 @@ from typing import TYPE_CHECKING, Any
 
 from cachetools import TTLCache
 
-from ashare_analyzer.exceptions import handle_errors
-
 if TYPE_CHECKING:
     from ashare_analyzer.data.manager import DataManager
 
@@ -73,13 +71,13 @@ class StockNameResolver:
         # 2. Return default name
         return f"股票{stock_code}"
 
-    def resolve(
+    async def resolve(
         self,
         stock_code: str,
         context: dict[str, Any] | None = None,
         use_cache: bool = True,
     ) -> str:
-        """Resolve stock name (full version).
+        """Resolve stock name (full version, async).
 
         Lookup priority:
         1. Local cache
@@ -107,7 +105,7 @@ class StockNameResolver:
 
         # 3. Try data sources if available
         if self._data_manager:
-            name = self._fetch_from_data_source(stock_code)
+            name = await self._fetch_from_data_source(stock_code)
             if name:
                 self._cache[stock_code] = name
                 return name
@@ -117,15 +115,17 @@ class StockNameResolver:
         self._cache[stock_code] = default_name
         return default_name
 
-    @handle_errors("从数据源获取股票名称失败", default_return=None)
-    def _fetch_from_data_source(self, stock_code: str) -> str | None:
-        """Fetch stock name from data source."""
+    async def _fetch_from_data_source(self, stock_code: str) -> str | None:
+        """Fetch stock name from data source (async)."""
         if self._data_manager is None:
             return None
 
-        # Use DataManager's get_stock_name method
-        name = self._data_manager.get_stock_name(stock_code)
-        if name:
-            return str(name)
+        try:
+            # Use DataManager's get_stock_name method (async)
+            name = await self._data_manager.get_stock_name(stock_code)
+            if name:
+                return str(name)
+        except Exception as e:
+            logger.debug(f"从数据源获取股票名称失败: {e}")
 
         return None

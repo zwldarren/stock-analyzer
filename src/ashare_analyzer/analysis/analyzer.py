@@ -170,7 +170,7 @@ async def _build_analysis_context(
     if realtime_quote and realtime_quote.name:
         stock_name = realtime_quote.name
     else:
-        stock_name = StockNameResolver(data_manager=data_service).resolve(stock_code)
+        stock_name = await StockNameResolver(data_manager=data_service).resolve(stock_code)
 
     if not stock_name:
         stock_name = f"Stock{stock_code}"
