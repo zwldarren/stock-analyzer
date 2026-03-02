@@ -24,11 +24,11 @@ if TYPE_CHECKING:
     from ashare_analyzer.search.service import SearchService
 
 
-_akshare_limiter = AsyncRateLimiter(rate=2.0, burst=3)
+_akshare_limiter = AsyncRateLimiter(rate=2.0, burst=1)
 _tushare_limiter = AsyncRateLimiter(rate=0.5, burst=1)
-_efinance_limiter = AsyncRateLimiter(rate=5.0, burst=10)
-_baostock_limiter = AsyncRateLimiter(rate=1.0, burst=2)
-_yfinance_limiter = AsyncRateLimiter(rate=1.0, burst=2)
+_efinance_limiter = AsyncRateLimiter(rate=5.0, burst=1)
+_baostock_limiter = AsyncRateLimiter(rate=1.0, burst=1)
+_yfinance_limiter = AsyncRateLimiter(rate=1.0, burst=1)
 
 
 @cache

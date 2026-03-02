@@ -18,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 STOCK_NAME_CACHE_TTL = 86400
 
+# Fallback sources for stock name resolution (in priority order)
+FALLBACK_REALTIME_SOURCES = ["tencent", "akshare_em", "akshare_sina"]
+
 
 class StockNameResolver:
     """Stock name resolver with TTL caching.
@@ -58,14 +61,14 @@ class StockNameResolver:
         if context:
             # Priority: stock_name field
             name = context.get("stock_name")
-            if name and not name.startswith("股票"):
+            if name and not name.startswith("股票") and not name.startswith("Stock"):
                 return name
 
             # Second: realtime data
             realtime = context.get("realtime")
             if isinstance(realtime, dict):
                 name = realtime.get("name")
-                if name:
+                if name and not name.startswith("股票"):
                     return name
 
         # 2. Return default name
@@ -99,14 +102,14 @@ class StockNameResolver:
 
         # 2. Try to get from context
         name = self.from_context(stock_code, context)
-        if name and not name.startswith("股票"):
+        if name and not name.startswith("股票") and not name.startswith("Stock"):
             self._cache[stock_code] = name
             return name
 
         # 3. Try data sources if available
         if self._data_manager:
             name = await self._fetch_from_data_source(stock_code)
-            if name:
+            if name and not name.startswith("股票"):
                 self._cache[stock_code] = name
                 return name
 
@@ -116,16 +119,36 @@ class StockNameResolver:
         return default_name
 
     async def _fetch_from_data_source(self, stock_code: str) -> str | None:
-        """Fetch stock name from data source (async)."""
+        """Fetch stock name from data source (async).
+
+        Tries multiple data sources in sequence:
+        1. DataManager's get_stock_name (uses cached realtime quote)
+        2. Direct realtime quote from fallback sources (tencent, akshare_em, etc.)
+        """
         if self._data_manager is None:
             return None
 
+        # 1. Try DataManager's get_stock_name first
         try:
-            # Use DataManager's get_stock_name method (async)
             name = await self._data_manager.get_stock_name(stock_code)
-            if name:
+            if name and not name.startswith("股票"):
+                logger.debug(f"[{stock_code}] 从DataManager获取股票名称成功: {name}")
                 return str(name)
         except Exception as e:
-            logger.debug(f"从数据源获取股票名称失败: {e}")
+            logger.debug(f"从DataManager获取股票名称失败: {e}")
+
+        # 2. Try fallback realtime sources directly
+        if hasattr(self._data_manager, "_try_realtime_by_source"):
+            for source in FALLBACK_REALTIME_SOURCES:
+                try:
+                    quote = await self._data_manager._try_realtime_by_source(stock_code, source)
+                    if quote and hasattr(quote, "name") and quote.name:
+                        name = quote.name
+                        if name and not name.startswith("股票"):
+                            logger.debug(f"[{stock_code}] 从{source}获取股票名称成功: {name}")
+                            return str(name)
+                except Exception as e:
+                    logger.debug(f"[{stock_code}] 从{source}获取股票名称失败: {e}")
+                    continue
 
         return None

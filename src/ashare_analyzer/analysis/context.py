@@ -23,15 +23,20 @@ async def _backfill_valuation_multiples(
     realtime_quote: "UnifiedRealtimeQuote | None",
     data_service: Any,
     stock_code: str,
-) -> None:
-    """Backfill missing PE/PB from alternative realtime sources when possible."""
+) -> "UnifiedRealtimeQuote | None":
+    """Backfill missing PE/PB from alternative realtime sources when possible.
+
+    Returns:
+        The alternative quote if successfully fetched, None otherwise.
+        This allows callers to extract additional data like stock name.
+    """
     missing_pe = "pe_ratio" not in valuation_data
     missing_pb = "pb_ratio" not in valuation_data
     if not (missing_pe or missing_pb):
-        return
+        return None
 
     if not hasattr(data_service, "_try_realtime_by_source"):
-        return
+        return None
 
     current_source = None
     if realtime_quote and getattr(realtime_quote, "source", None):
@@ -66,7 +71,13 @@ async def _backfill_valuation_multiples(
 
         if not (missing_pe or missing_pb):
             logger.debug(f"[{stock_code}] 估值字段补齐成功: 来源={source}")
-            break
+            return alt_quote
+
+        # Even if we only got partial data, return the quote for potential name extraction
+        if alt_quote and hasattr(alt_quote, "name") and alt_quote.name:
+            return alt_quote
+
+    return None
 
 
 def _get_default_technical_indicators(current_price: float = 0.0, ma20: float = 0.0) -> dict[str, float]:
@@ -362,8 +373,13 @@ async def build_valuation_context(
     current_price: float,
     data_service: Any,
     stock_code: str,
-) -> dict[str, Any]:
-    """Build valuation context with PE/PB and industry comparison."""
+) -> tuple[dict[str, Any], "UnifiedRealtimeQuote | None"]:
+    """Build valuation context with PE/PB and industry comparison.
+
+    Returns:
+        A tuple of (valuation_data, alt_quote) where alt_quote is the alternative
+        realtime quote fetched during backfill, which may contain stock name.
+    """
     valuation_data: dict[str, Any] = {}
 
     if realtime_quote:
@@ -374,7 +390,7 @@ async def build_valuation_context(
         if pb is not None and pb > 0:
             valuation_data["pb_ratio"] = float(pb)
 
-    await _backfill_valuation_multiples(valuation_data, realtime_quote, data_service, stock_code)
+    alt_quote = await _backfill_valuation_multiples(valuation_data, realtime_quote, data_service, stock_code)
 
     # Get industry data
     industry_name = None
@@ -401,10 +417,10 @@ async def build_valuation_context(
     pe_ratio = valuation_data.get("pe_ratio", 0)
     pb_ratio = valuation_data.get("pb_ratio", 0)
 
-    if current_price > 0 and pe_ratio > 0 and 5 <= pe_ratio <= 100:
+    if current_price > 0 and pe_ratio > 0 and 2 <= pe_ratio <= 200:
         valuation_data["eps"] = round(current_price / pe_ratio, 2)
 
-    if current_price > 0 and pb_ratio > 0 and 0.5 <= pb_ratio <= 20:
+    if current_price > 0 and pb_ratio > 0 and 0.3 <= pb_ratio <= 30:
         valuation_data["book_value_per_share"] = round(current_price / pb_ratio, 2)
 
     # Calculate industry deviation
@@ -412,7 +428,7 @@ async def build_valuation_context(
     if pb_ratio > 0 and industry_pb > 0:
         valuation_data["pb_deviation_from_industry"] = round((pb_ratio - industry_pb) / industry_pb * 100, 2)
 
-    return valuation_data
+    return valuation_data, alt_quote
 
 
 def build_financial_context(

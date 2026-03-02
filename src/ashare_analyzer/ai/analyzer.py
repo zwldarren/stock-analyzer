@@ -114,11 +114,15 @@ class AIAnalyzer(IAIAnalyzer):
         name = context.get("stock_name", "")
 
         # Get stock name from context
-        if not name or name.startswith("股票"):
+        if not name or name.startswith("股票") or name.startswith("Stock"):
             if "realtime" in context and context["realtime"].get("name"):
                 name = context["realtime"]["name"]
             else:
                 name = StockNameResolver.from_context(code, context)
+
+        # Final fallback
+        if not name or name.startswith("股票") or name.startswith("Stock"):
+            name = f"股票{code}"
 
         logger.debug(f"多Agent分析 {name}({code}) 开始")
 

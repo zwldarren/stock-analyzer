@@ -11,6 +11,9 @@ import logging
 import os
 from typing import Any
 
+os.environ["LITELLM_LOG"] = "WARNING"
+os.environ["LITELLM_MODE"] = "PRODUCTION"
+
 import litellm
 from litellm import acompletion
 
@@ -20,7 +23,6 @@ from ashare_analyzer.utils import calculate_backoff_delay
 
 logger = logging.getLogger(__name__)
 
-os.environ.setdefault("LITELLM_LOG", "WARNING")
 litellm.set_verbose = False
 litellm.drop_params = True
 

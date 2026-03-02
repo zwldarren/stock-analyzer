@@ -1,11 +1,10 @@
-"""Tests for ValuationAgent."""
-
-import math
+"""Tests for ValuationAgent with multi-factor adaptive approach."""
 
 import pytest
 
 from ashare_analyzer.ai.agents.valuation_agent import ValuationAgent
 from ashare_analyzer.models import SignalType
+from ashare_analyzer.valuation import StockType
 
 
 class TestValuationAgent:
@@ -26,21 +25,22 @@ class TestValuationAgent:
         """Test undervalued stock returns BUY signal."""
         agent = ValuationAgent()
 
-        # Fair value calculation with multiple methods:
-        # Graham = sqrt(22.5 * 50 * 150) = 410.79
-        # Relative = 50 * 30 = 1500 (only PE, no PB)
-        # PE-based = 50 * 30 = 1500
-        # Average = (410.79 + 1500 + 1500) / 3 = 1136.93
-        # For BUY: margin >= 0.15, so price <= 1136.93 / 1.15 = 988.6
-        # Use price = 800 -> margin = (1136.93 - 800) / 800 = 0.42 > 0.15 -> BUY
+        # Create context with value stock characteristics
+        # PE < 15, ROE > 10, Dividend > 2% -> VALUE type
+        # For VALUE: pb_percentile(0.30), dividend_discount(0.30), adjusted_graham(0.40)
         context = {
             "code": "600519",
             "stock_name": "Test Stock",
-            "current_price": 800.0,
+            "current_price": 100.0,
             "valuation_data": {
-                "eps": 50.0,
-                "book_value_per_share": 150.0,
-                "industry_pe": 30.0,
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,  # PE < 15
+                "pb_ratio": 1.25,
+                "roe": 15.0,  # ROE > 10%
+                "dividend_yield": 3.0,  # Dividend > 2%
+                "industry_name": "白酒",
+                "industry_pb": 5.0,
             },
         }
 
@@ -49,23 +49,27 @@ class TestValuationAgent:
         assert result.signal == SignalType.BUY
         assert result.confidence > 0
         assert "公允价值" in result.reasoning
+        assert "股票类型" in result.reasoning
 
     @pytest.mark.asyncio
     async def test_analyze_overvalued_returns_sell(self):
         """Test overvalued stock returns SELL signal."""
         agent = ValuationAgent()
 
-        # Fair value = 1136.93 (same calculation as above)
-        # For SELL: margin <= -0.15, so price >= 1136.93 / 0.85 = 1337.6
-        # Use price = 1400 -> margin = (1136.93 - 1400) / 1400 = -0.188 < -0.15 -> SELL
+        # Create context where fair value is lower than current price
         context = {
             "code": "600519",
             "stock_name": "Test Stock",
-            "current_price": 1400.0,
+            "current_price": 500.0,
             "valuation_data": {
-                "eps": 50.0,
-                "book_value_per_share": 150.0,
-                "industry_pe": 30.0,
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 50.0,  # High PE
+                "pb_ratio": 6.25,
+                "roe": 15.0,
+                "dividend_yield": 1.0,
+                "industry_name": "白酒",
+                "industry_pb": 3.0,
             },
         }
 
@@ -80,24 +84,35 @@ class TestValuationAgent:
         """Test fairly valued stock returns HOLD signal."""
         agent = ValuationAgent()
 
-        # Fair value = 1136.93 (same calculation as above)
-        # For HOLD: -0.15 < margin < 0.15
-        # Use price = 1100 -> margin = (1136.93 - 1100) / 1100 = 0.034 -> HOLD
+        # Create context where fair value is close to current price
+        # We need margin between -5% and +5% for HOLD
+        # Adjusted Graham with ROE 15%: sqrt(22.5 * 2.0 * 10 * 80) ≈ 189.7
+        # PB percentile with industry_pb 2.0: 80 * 2.0 = 160
+        # Weighted average for DEFAULT: 0.4 * 160 + 0.6 * 189.7 ≈ 177.8
+        # For margin ~0%, set price to 178
         context = {
             "code": "600519",
             "stock_name": "Test Stock",
-            "current_price": 1100.0,
+            "current_price": 178.0,
             "valuation_data": {
-                "eps": 50.0,
-                "book_value_per_share": 150.0,
-                "industry_pe": 30.0,
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 17.8,
+                "pb_ratio": 2.225,
+                "roe": 15.0,
+                "dividend_yield": 1.0,
+                "industry_name": "白酒",
+                "industry_pb": 2.0,
             },
         }
 
         result = await agent.analyze(context)
 
+        # Margin should be within HOLD range (-5% to +5%)
+        margin = result.metadata.get("margin_of_safety", 0)
+        assert -6 <= margin <= 6, f"Expected margin within [-5%, +5%], got {margin}%"
         assert result.signal == SignalType.HOLD
-        assert result.confidence >= 30
+        assert result.confidence >= 10
 
     @pytest.mark.asyncio
     async def test_analyze_no_valuation_data_returns_hold(self):
@@ -129,7 +144,7 @@ class TestValuationAgent:
             "valuation_data": {
                 "eps": 50.0,
                 "book_value_per_share": 150.0,
-                "industry_pe": 30.0,
+                "pe_ratio": 20.0,
             },
         }
 
@@ -139,259 +154,578 @@ class TestValuationAgent:
         assert result.confidence == 0
 
 
-class TestValuationAgentCalculations:
-    """Tests for ValuationAgent calculation methods."""
+class TestValuationAgentStockTypeClassification:
+    """Tests for stock type classification integration."""
 
-    def test_calculate_graham_number(self):
-        """Test Graham Number calculation: sqrt(22.5 * eps * bvps)."""
+    @pytest.mark.asyncio
+    async def test_cyclical_stock_uses_pb_percentile_method(self):
+        """Test cyclical stock uses pb_percentile as primary method."""
         agent = ValuationAgent()
 
-        # Graham Number = sqrt(22.5 * 50 * 150) = sqrt(168750) = 410.82
-        data = {
-            "eps": 50.0,
-            "book_value_per_share": 150.0,
+        # 洛阳钼业-like: cyclical industry (有色金属)
+        context = {
+            "code": "603993",
+            "stock_name": "洛阳钼业",
+            "current_price": 6.0,
+            "valuation_data": {
+                "eps": 0.3,
+                "book_value_per_share": 2.5,
+                "pe_ratio": 20.0,
+                "pb_ratio": 2.4,
+                "roe": 10.0,
+                "dividend_yield": 2.0,
+                "industry_name": "有色金属",  # Cyclical industry
+            },
         }
 
-        result = agent._calculate_graham_number(data)
+        result = await agent.analyze(context)
 
-        expected = math.sqrt(22.5 * 50.0 * 150.0)
-        assert abs(result - expected) < 0.01
+        # Should classify as CYCLICAL
+        assert result.metadata.get("stock_type") == StockType.CYCLICAL.value
 
-    def test_calculate_graham_number_missing_eps_returns_zero(self):
-        """Test Graham Number returns zero when EPS is missing."""
+        # Should use pb_percentile method (primary for cyclical)
+        valuations = result.metadata.get("valuations", {})
+        assert "pb_percentile" in valuations
+
+        # Should not have 100% confidence
+        assert result.confidence < 100
+
+    @pytest.mark.asyncio
+    async def test_cyclical_stock_does_not_get_extreme_sell_confidence(self):
+        """Test that cyclical stock (洛阳钼业-like) doesn't get 100% SELL confidence.
+
+        This is the key test case for the A-share valuation redesign.
+        Cyclical stocks at low PB should not be rated as extreme SELL.
+        """
         agent = ValuationAgent()
 
-        data = {
-            "book_value_per_share": 150.0,
+        # 洛阳钼业-like: cyclical stock with PB at low percentile
+        # Current PB = 2.4, Industry PB = 3.0
+        # This should not produce 100% SELL confidence
+        context = {
+            "code": "603993",
+            "stock_name": "洛阳钼业",
+            "current_price": 6.0,
+            "valuation_data": {
+                "eps": 0.3,
+                "book_value_per_share": 2.5,
+                "pe_ratio": 20.0,
+                "pb_ratio": 2.4,
+                "roe": 10.0,
+                "dividend_yield": 2.0,
+                "industry_name": "有色金属",  # Cyclical industry
+                "industry_pb": 3.0,
+            },
         }
 
-        result = agent._calculate_graham_number(data)
+        result = await agent.analyze(context)
 
-        assert result == 0
+        # Key assertion: confidence should NOT be 100
+        assert result.confidence < 100, f"Cyclical stock should not have 100% confidence, got {result.confidence}"
 
-    def test_calculate_graham_number_missing_bvps_returns_zero(self):
-        """Test Graham Number returns zero when BVPS is missing."""
+        # Verify stock type is CYCLICAL
+        assert result.metadata.get("stock_type") == StockType.CYCLICAL.value
+
+        # Verify reasoning includes stock type
+        assert "周期型" in result.reasoning or "股票类型" in result.reasoning
+
+    @pytest.mark.asyncio
+    async def test_financial_stock_uses_dividend_discount(self):
+        """Test financial stock uses dividend_discount as primary method."""
         agent = ValuationAgent()
 
-        data = {
-            "eps": 50.0,
+        # Financial stock that doesn't meet VALUE criteria (PE not < 15, or ROE not > 10%)
+        # Using a securities company with higher PE
+        context = {
+            "code": "601211",
+            "stock_name": "国泰君安",
+            "current_price": 15.0,
+            "valuation_data": {
+                "eps": 0.5,
+                "book_value_per_share": 10.0,
+                "pe_ratio": 30.0,  # High PE - not VALUE
+                "pb_ratio": 1.5,
+                "roe": 5.0,  # Low ROE - not VALUE
+                "dividend_yield": 2.0,
+                "industry_name": "证券",  # Financial industry
+                "industry_pb": 1.6,
+            },
         }
 
-        result = agent._calculate_graham_number(data)
+        result = await agent.analyze(context)
 
-        assert result == 0
+        # Should classify as FINANCIAL (not VALUE because PE >= 15)
+        assert result.metadata.get("stock_type") == StockType.FINANCIAL.value
 
-    def test_calculate_graham_number_negative_values_returns_zero(self):
-        """Test Graham Number returns zero for negative values."""
+        # Should use dividend_discount method (primary for financial)
+        valuations = result.metadata.get("valuations", {})
+        assert "dividend_discount" in valuations
+
+    @pytest.mark.asyncio
+    async def test_growth_stock_uses_peg_method(self):
+        """Test growth stock uses PEG as primary method."""
         agent = ValuationAgent()
 
-        data = {
-            "eps": -10.0,
-            "book_value_per_share": 150.0,
+        # Growth stock with high revenue growth
+        context = {
+            "code": "300750",
+            "stock_name": "宁德时代",
+            "current_price": 200.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 50.0,
+                "pe_ratio": 20.0,
+                "pb_ratio": 4.0,
+                "roe": 20.0,
+                "dividend_yield": 0.5,
+                "revenue_growth": 50.0,  # High growth > 20%
+                "industry_name": "电池",
+            },
         }
 
-        result = agent._calculate_graham_number(data)
+        result = await agent.analyze(context)
 
-        assert result == 0
+        # Should classify as GROWTH
+        assert result.metadata.get("stock_type") == StockType.GROWTH.value
 
-    def test_calculate_pe_valuation(self):
-        """Test PE-based valuation: eps * industry_pe."""
+        # Should use PEG method (primary for growth)
+        valuations = result.metadata.get("valuations", {})
+        assert "peg" in valuations
+
+    @pytest.mark.asyncio
+    async def test_value_stock_classification(self):
+        """Test value stock with low PE, high ROE, dividend payer."""
         agent = ValuationAgent()
 
-        # PE valuation = 50 * 30 = 1500
-        data = {
-            "eps": 50.0,
-            "industry_pe": 30.0,
+        context = {
+            "code": "000651",
+            "stock_name": "格力电器",
+            "current_price": 40.0,
+            "valuation_data": {
+                "eps": 4.0,
+                "book_value_per_share": 20.0,
+                "pe_ratio": 10.0,  # PE < 15
+                "pb_ratio": 2.0,
+                "roe": 20.0,  # ROE > 10%
+                "dividend_yield": 5.0,  # Dividend > 2%
+                "industry_name": "家电",
+            },
         }
 
-        result = agent._calculate_pe_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 1500.0
+        # Should classify as VALUE
+        assert result.metadata.get("stock_type") == StockType.VALUE.value
 
-    def test_calculate_pe_valuation_missing_eps_returns_zero(self):
-        """Test PE valuation returns zero when EPS is missing."""
+
+class TestValuationAgentConfidenceDecay:
+    """Tests for confidence decay when data is missing."""
+
+    @pytest.mark.asyncio
+    async def test_confidence_decay_no_historical_data(self):
+        """Test confidence decay when historical PB/PE data is missing."""
         agent = ValuationAgent()
 
-        data = {
-            "industry_pe": 30.0,
+        # Context without historical data
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                "industry_pb": 5.0,
+                # No historical_pb_median
+            },
         }
 
-        result = agent._calculate_pe_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 0
+        # Confidence decay should be applied
+        assert result.metadata.get("confidence_decay", 1.0) < 1.0
 
-    def test_calculate_pe_valuation_missing_industry_pe_returns_zero(self):
-        """Test PE valuation returns zero when industry PE is missing."""
+    @pytest.mark.asyncio
+    async def test_confidence_decay_no_industry_data(self):
+        """Test confidence decay when industry data is missing."""
         agent = ValuationAgent()
 
-        data = {
-            "eps": 50.0,
+        # Context without industry data
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                # No industry_pb
+            },
         }
 
-        result = agent._calculate_pe_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 0
+        # Confidence decay should be applied
+        assert result.metadata.get("confidence_decay", 1.0) < 1.0
 
-    def test_calculate_pb_valuation(self):
-        """Test PB-based valuation: bvps * industry_pb."""
+    @pytest.mark.asyncio
+    async def test_confidence_decay_single_method(self):
+        """Test confidence decay when only one valuation method is available."""
         agent = ValuationAgent()
 
-        # PB valuation = 150 * 8 = 1200
-        data = {
-            "book_value_per_share": 150.0,
-            "industry_pb": 8.0,
+        # Context with minimal data - only one method available
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "book_value_per_share": 80.0,
+                "pb_ratio": 1.25,
+                "industry_name": "有色金属",  # Cyclical - uses pb_percentile
+                # Minimal data for pb_percentile only
+            },
         }
 
-        result = agent._calculate_pb_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 1200.0
+        # If only one method, decay should be significant (x0.6)
+        if len(result.metadata.get("valuations", {})) == 1:
+            assert result.metadata.get("confidence_decay", 1.0) < 0.7
 
-    def test_calculate_pb_valuation_missing_bvps_returns_zero(self):
-        """Test PB valuation returns zero when BVPS is missing."""
+    @pytest.mark.asyncio
+    async def test_higher_confidence_with_full_data(self):
+        """Test higher confidence when full data is available."""
         agent = ValuationAgent()
 
-        data = {
-            "industry_pb": 8.0,
+        # Context with full data
+        context_full = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                "industry_pb": 5.0,
+                "historical_pb_median": 4.5,  # Historical data available
+            },
         }
 
-        result = agent._calculate_pb_valuation(data)
-
-        assert result == 0
-
-    def test_calculate_pb_valuation_missing_industry_pb_returns_zero(self):
-        """Test PB valuation returns zero when industry PB is missing."""
-        agent = ValuationAgent()
-
-        data = {
-            "book_value_per_share": 150.0,
+        # Context with missing data
+        context_partial = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                # No historical or industry data
+            },
         }
 
-        result = agent._calculate_pb_valuation(data)
+        result_full = await agent.analyze(context_full)
+        result_partial = await agent.analyze(context_partial)
 
-        assert result == 0
+        # Full data should have higher confidence (less decay)
+        decay_full = result_full.metadata.get("confidence_decay", 1.0)
+        decay_partial = result_partial.metadata.get("confidence_decay", 1.0)
+        assert decay_full >= decay_partial
 
-    def test_calculate_relative_valuation_with_both(self):
-        """Test relative valuation with both PE and PB data."""
+
+class TestValuationAgentMetadata:
+    """Tests for metadata content."""
+
+    @pytest.mark.asyncio
+    async def test_metadata_includes_stock_type(self):
+        """Test metadata includes stock_type field."""
         agent = ValuationAgent()
 
-        # PE valuation = 50 * 30 = 1500
-        # PB valuation = 150 * 8 = 1200
-        # Average = (1500 + 1200) / 2 = 1350
-        data = {
-            "eps": 50.0,
-            "book_value_per_share": 150.0,
-            "industry_pe": 30.0,
-            "industry_pb": 8.0,
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+            },
         }
 
-        result = agent._calculate_relative_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 1350.0
+        assert "stock_type" in result.metadata
+        assert result.metadata["stock_type"] in [t.value for t in StockType]
 
-    def test_calculate_relative_valuation_with_pe_only(self):
-        """Test relative valuation with only PE data."""
+    @pytest.mark.asyncio
+    async def test_metadata_includes_valuations(self):
+        """Test metadata includes valuations dict."""
         agent = ValuationAgent()
 
-        # PE valuation = 50 * 30 = 1500
-        data = {
-            "eps": 50.0,
-            "industry_pe": 30.0,
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                "industry_pb": 5.0,
+            },
         }
 
-        result = agent._calculate_relative_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 1500.0
+        assert "valuations" in result.metadata
+        assert isinstance(result.metadata["valuations"], dict)
+        assert len(result.metadata["valuations"]) > 0
 
-    def test_calculate_relative_valuation_with_pb_only(self):
-        """Test relative valuation with only PB data."""
+    @pytest.mark.asyncio
+    async def test_metadata_includes_method_weights(self):
+        """Test metadata includes method_weights dict."""
         agent = ValuationAgent()
 
-        # PB valuation = 150 * 8 = 1200
-        data = {
-            "book_value_per_share": 150.0,
-            "industry_pb": 8.0,
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                "industry_pb": 5.0,
+            },
         }
 
-        result = agent._calculate_relative_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 1200.0
+        assert "method_weights" in result.metadata
+        assert isinstance(result.metadata["method_weights"], dict)
 
-    def test_calculate_relative_valuation_no_data_returns_zero(self):
-        """Test relative valuation returns zero with no data."""
+    @pytest.mark.asyncio
+    async def test_metadata_includes_confidence_decay(self):
+        """Test metadata includes confidence_decay field."""
         agent = ValuationAgent()
 
-        data = {}
+        context = {
+            "code": "600519",
+            "stock_name": "Test Stock",
+            "current_price": 100.0,
+            "valuation_data": {
+                "eps": 10.0,
+                "book_value_per_share": 80.0,
+                "pe_ratio": 10.0,
+                "pb_ratio": 1.25,
+                "roe": 15.0,
+                "dividend_yield": 3.0,
+                "industry_name": "白酒",
+                "industry_pb": 5.0,
+            },
+        }
 
-        result = agent._calculate_relative_valuation(data)
+        result = await agent.analyze(context)
 
-        assert result == 0
+        assert "confidence_decay" in result.metadata
+        assert 0 < result.metadata["confidence_decay"] <= 1.0
 
-    def test_margin_to_signal_buy_threshold(self):
-        """Test margin >= 0.15 returns BUY signal."""
+
+class TestValuationAgentMarginToSignal:
+    """Tests for margin to signal conversion with new thresholds."""
+
+    def test_margin_to_signal_strong_buy(self):
+        """Test margin >= 20% returns BUY with high confidence."""
         agent = ValuationAgent()
 
-        # margin = 0.15 -> BUY
+        signal, confidence = agent._margin_to_signal(0.20)
+
+        assert signal == SignalType.BUY
+        assert confidence == 70  # 70% base for strong buy
+
+    def test_margin_to_signal_strong_buy_with_excess(self):
+        """Test margin > 20% returns BUY with higher confidence."""
+        agent = ValuationAgent()
+
+        signal, confidence = agent._margin_to_signal(0.30)
+
+        assert signal == SignalType.BUY
+        # 70 + (30-20) * 0.5 = 75
+        assert confidence == 75
+
+    def test_margin_to_signal_moderate_buy(self):
+        """Test margin 10-20% returns BUY with moderate confidence."""
+        agent = ValuationAgent()
+
         signal, confidence = agent._margin_to_signal(0.15)
 
         assert signal == SignalType.BUY
-        assert confidence >= 50  # 50 + 0.15 * 200 = 80
+        # 60 + (15-10) * 100 = 65
+        assert confidence == 65
 
-    def test_margin_to_signal_buy_large_margin(self):
-        """Test large positive margin returns BUY with high confidence."""
+    def test_margin_to_signal_hold(self):
+        """Test margin -5% to +5% returns HOLD."""
         agent = ValuationAgent()
 
-        # margin = 0.25 -> BUY, confidence capped at 100
-        signal, confidence = agent._margin_to_signal(0.25)
-
-        assert signal == SignalType.BUY
-        assert confidence == 100  # 50 + 0.25 * 200 = 100
-
-    def test_margin_to_signal_sell_threshold(self):
-        """Test margin <= -0.15 returns SELL signal."""
-        agent = ValuationAgent()
-
-        # margin = -0.15 -> SELL
-        signal, confidence = agent._margin_to_signal(-0.15)
-
-        assert signal == SignalType.SELL
-        assert confidence >= 50  # 50 + 0.15 * 200 = 80
-
-    def test_margin_to_signal_sell_large_margin(self):
-        """Test large negative margin returns SELL with high confidence."""
-        agent = ValuationAgent()
-
-        # margin = -0.25 -> SELL, confidence capped at 100
-        signal, confidence = agent._margin_to_signal(-0.25)
-
-        assert signal == SignalType.SELL
-        assert confidence == 100  # 50 + 0.25 * 200 = 100
-
-    def test_margin_to_signal_hold_range(self):
-        """Test margin in hold range returns HOLD signal."""
-        agent = ValuationAgent()
-
-        # margin = 0.05 -> HOLD
-        signal, confidence = agent._margin_to_signal(0.05)
-
-        assert signal == SignalType.HOLD
-        assert confidence >= 30  # max(30, 50 - 5) = 45
-
-    def test_margin_to_signal_hold_zero(self):
-        """Test zero margin returns HOLD signal."""
-        agent = ValuationAgent()
-
-        # margin = 0 -> HOLD
         signal, confidence = agent._margin_to_signal(0.0)
 
         assert signal == SignalType.HOLD
-        assert confidence == 50  # 50 - 0 = 50
+        assert confidence == 50
 
-    def test_margin_to_signal_hold_negative_small(self):
-        """Test small negative margin returns HOLD signal."""
+    def test_margin_to_signal_hold_slight_negative(self):
+        """Test small negative margin returns HOLD."""
         agent = ValuationAgent()
 
-        # margin = -0.10 -> HOLD
-        signal, confidence = agent._margin_to_signal(-0.10)
+        signal, confidence = agent._margin_to_signal(-0.03)
 
         assert signal == SignalType.HOLD
-        assert confidence >= 30  # max(30, 50 - 10) = 40
+        assert confidence == 50
+
+    def test_margin_to_signal_moderate_sell(self):
+        """Test margin -10% to -20% returns SELL with moderate confidence."""
+        agent = ValuationAgent()
+
+        signal, confidence = agent._margin_to_signal(-0.15)
+
+        assert signal == SignalType.SELL
+        # 60 + (15-10) = 65
+        assert confidence == 65
+
+    def test_margin_to_signal_strong_sell(self):
+        """Test margin <= -20% returns SELL with high confidence."""
+        agent = ValuationAgent()
+
+        signal, confidence = agent._margin_to_signal(-0.20)
+
+        assert signal == SignalType.SELL
+        assert confidence == 70  # 70% base for strong sell
+
+    def test_margin_to_signal_strong_sell_with_excess(self):
+        """Test margin < -20% returns SELL with higher confidence."""
+        agent = ValuationAgent()
+
+        signal, confidence = agent._margin_to_signal(-0.30)
+
+        assert signal == SignalType.SELL
+        # 70 + (30-20) * 0.5 = 75
+        assert confidence == 75
+
+
+class TestValuationAgentCalculateMethods:
+    """Tests for individual valuation calculation methods."""
+
+    def test_calculate_single_method_adjusted_graham(self):
+        """Test adjusted Graham calculation."""
+        agent = ValuationAgent()
+
+        valuation_data = {
+            "eps": 10.0,
+            "book_value_per_share": 80.0,
+            "roe": 15.0,
+        }
+
+        result = agent._calculate_single_method("adjusted_graham", valuation_data, 100.0)
+
+        assert result.value > 0
+        assert result.method == "adjusted_graham"
+        assert result.skip_reason is None
+
+    def test_calculate_single_method_peg(self):
+        """Test PEG calculation."""
+        agent = ValuationAgent()
+
+        valuation_data = {
+            "eps": 10.0,
+            "pe_ratio": 20.0,
+            "revenue_growth": 20.0,
+        }
+
+        result = agent._calculate_single_method("peg", valuation_data, 100.0)
+
+        assert result.value > 0
+        assert result.method == "peg"
+        assert result.skip_reason is None
+
+    def test_calculate_single_method_pb_percentile(self):
+        """Test PB percentile calculation."""
+        agent = ValuationAgent()
+
+        valuation_data = {
+            "book_value_per_share": 80.0,
+            "pb_ratio": 1.25,
+            "industry_pb": 3.0,
+        }
+
+        result = agent._calculate_single_method("pb_percentile", valuation_data, 100.0)
+
+        assert result.value > 0
+        assert result.method == "pb_percentile"
+        assert result.skip_reason is None
+
+    def test_calculate_single_method_ps(self):
+        """Test PS calculation."""
+        agent = ValuationAgent()
+
+        valuation_data = {
+            "ps_ratio": 2.0,
+            "industry_ps": 3.0,
+        }
+
+        result = agent._calculate_single_method("ps", valuation_data, 100.0)
+
+        assert result.value > 0
+        assert result.method == "ps"
+        assert result.skip_reason is None
+
+    def test_calculate_single_method_dividend_discount(self):
+        """Test dividend discount calculation."""
+        agent = ValuationAgent()
+
+        valuation_data = {
+            "dividend_yield": 3.0,
+        }
+
+        result = agent._calculate_single_method("dividend_discount", valuation_data, 100.0)
+
+        assert result.value > 0
+        assert result.method == "dividend_discount"
+        assert result.skip_reason is None
+
+    def test_calculate_single_method_missing_data(self):
+        """Test method returns skip_reason when data is missing."""
+        agent = ValuationAgent()
+
+        valuation_data = {
+            "eps": 0,  # Invalid EPS
+        }
+
+        result = agent._calculate_single_method("adjusted_graham", valuation_data, 100.0)
+
+        assert result.value == 0
+        assert result.skip_reason is not None

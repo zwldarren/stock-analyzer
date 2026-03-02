@@ -222,7 +222,6 @@ class PortfolioManagerAgent(BaseAgent):
             )
 
             if result and "signal" in result:
-                # Map signal to action for backward compatibility
                 action_map = {"buy": "BUY", "sell": "SELL", "hold": "HOLD"}
                 result["action"] = action_map.get(result.get("signal", "hold").lower(), "HOLD")
 

@@ -172,7 +172,7 @@ async def _build_analysis_context(
     else:
         stock_name = await StockNameResolver(data_manager=data_service).resolve(stock_code)
 
-    if not stock_name:
+    if not stock_name or stock_name.startswith("股票"):
         stock_name = f"Stock{stock_code}"
 
     context = build_basic_context(stock_code, stock_name, daily_data, realtime_quote)
@@ -192,11 +192,28 @@ async def _build_analysis_context(
     if technical_indicators:
         context["technical_data"] = technical_indicators
 
-    valuation_data = await build_valuation_context(realtime_quote, daily_data, current_price, data_service, stock_code)
+    valuation_result = await build_valuation_context(
+        realtime_quote, daily_data, current_price, data_service, stock_code
+    )
+    valuation_data, alt_quote = valuation_result
     if valuation_data:
         context["valuation_data"] = valuation_data
         if "industry_name" in valuation_data:
             context["industry"] = valuation_data["industry_name"]
+
+    # Try to backfill stock name from alternative realtime source if not available
+    needs_name = not stock_name or stock_name.startswith("Stock") or stock_name.startswith("股票")
+    if needs_name and alt_quote:
+        alt_name = getattr(alt_quote, "name", None)
+        if alt_name and not alt_name.startswith("股票"):
+            stock_name = alt_name
+            context["stock_name"] = stock_name
+            # Also update realtime context if it was missing
+            if "realtime" not in context or not context["realtime"].get("name"):
+                if "realtime" not in context:
+                    context["realtime"] = {}
+                context["realtime"]["name"] = stock_name
+            logger.debug(f"[{stock_code}] 从备选数据源回填股票名称: {stock_name}")
 
     financial_data = build_financial_context(realtime_quote, daily_data)
     if financial_data:

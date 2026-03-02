@@ -64,7 +64,13 @@ class ReportGenerator:
                 emoji = get_signal_emoji(action)
                 position_ratio = r.position_ratio or 0
                 ratio_str = f" | 仓位{position_ratio * 100:.0f}%" if position_ratio > 0 else ""
-                lines.append(f"{emoji} **{r.name}({r.code})**: **{action}** | 置信度{r.sentiment_score}%{ratio_str}")
+                # Handle both "股票" and "Stock" prefixes
+                display_name = r.name
+                if not display_name or display_name.startswith("股票") or display_name.startswith("Stock"):
+                    display_name = f"股票{r.code}"
+                line = f"{emoji} **{display_name}({r.code})**: **{action}** | "
+                line += f"置信度{r.sentiment_score}%{ratio_str}"
+                lines.append(line)
             lines.extend(["", "---", ""])
 
         # Individual stock details
@@ -81,7 +87,10 @@ class ReportGenerator:
         """Generate report section for a single stock."""
         action = result.final_action or "HOLD"
         action_emoji = get_signal_emoji(action)
-        stock_name = result.name if result.name and not result.name.startswith("股票") else f"股票{result.code}"
+        # Handle both "股票" and "Stock" prefixes
+        stock_name = result.name
+        if not stock_name or stock_name.startswith("股票") or stock_name.startswith("Stock"):
+            stock_name = f"股票{result.code}"
 
         lines = [
             f"## {action_emoji} {stock_name} ({result.code})",
@@ -169,7 +178,10 @@ class ReportGenerator:
         report_date = datetime.now().strftime("%Y-%m-%d %H:%M")
         action = result.final_action or "HOLD"
         action_emoji = get_signal_emoji(action)
-        stock_name = result.name if result.name and not result.name.startswith("股票") else f"股票{result.code}"
+        # Handle both "股票" and "Stock" prefixes
+        stock_name = result.name
+        if not stock_name or stock_name.startswith("股票") or stock_name.startswith("Stock"):
+            stock_name = f"股票{result.code}"
 
         lines = [
             f"## {action_emoji} {stock_name} ({result.code})",

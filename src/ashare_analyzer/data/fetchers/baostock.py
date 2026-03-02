@@ -36,6 +36,11 @@ from ashare_analyzer.utils.stock_code import convert_to_provider_format, is_us_c
 logger = logging.getLogger(__name__)
 
 
+# Class-level lock to serialize all BaoStock requests globally
+# BaoStock uses socket-based protocol that cannot handle concurrent sessions
+_BAOSTOCK_SESSION_LOCK = asyncio.Lock()
+
+
 class BaostockFetcher(BaseFetcher):
     """
     Baostock 数据源实现 (async)
@@ -46,12 +51,14 @@ class BaostockFetcher(BaseFetcher):
     关键策略：
     - 使用异步上下文管理器管理连接生命周期
     - 每次请求都重新登录/登出，防止连接泄露
+    - **使用全局 asyncio.Lock 序列化所有请求，防止 socket 冲突**
     - 失败后指数退避重试
 
     Baostock 特点：
     - 免费、无需注册
     - 需要显式登录/登出
     - 数据更新略有延迟（T+1）
+    - **不支持并发请求（socket 协议限制）**
     """
 
     name = "BaostockFetcher"
@@ -76,38 +83,46 @@ class BaostockFetcher(BaseFetcher):
 
     @asynccontextmanager
     async def _baostock_session(self) -> AsyncGenerator:
-        bs = self._get_baostock()
-        login_result = None
+        """
+        BaoStock session with strict serialization.
 
-        try:
-            login_result = await asyncio.to_thread(bs.login)
+        BaoStock uses socket-based protocol that cannot handle concurrent sessions.
+        This lock ensures only one request uses BaoStock at a time across all coroutines.
+        """
+        # Acquire global lock to serialize all BaoStock requests
+        async with _BAOSTOCK_SESSION_LOCK:
+            bs = self._get_baostock()
+            login_result = None
 
-            if login_result.error_code != "0":
-                raise DataFetchError(f"Baostock 登录失败: {login_result.error_msg}")
-
-            logger.debug("Baostock 登录成功")
-
-            yield bs
-
-        finally:
             try:
+                login_result = await asyncio.to_thread(bs.login)
 
-                def _logout():
-                    try:
-                        return bs.logout()
-                    except OSError:
-                        # Socket already closed or invalid file descriptor
-                        return None
+                if login_result.error_code != "0":
+                    raise DataFetchError(f"Baostock 登录失败: {login_result.error_msg}")
 
-                logout_result = await asyncio.to_thread(_logout)
-                if logout_result and logout_result.error_code == "0":
-                    logger.debug("Baostock 登出成功")
-                elif logout_result:
-                    logger.debug(f"Baostock 登出异常: {logout_result.error_msg}")
-                # Add small delay to allow socket cleanup and avoid ResourceWarning
-                await asyncio.sleep(0.1)
-            except Exception as e:
-                logger.debug(f"Baostock 登出时发生错误: {e}")
+                logger.debug("Baostock 登录成功")
+
+                yield bs
+
+            finally:
+                try:
+
+                    def _logout():
+                        try:
+                            return bs.logout()
+                        except OSError:
+                            # Socket already closed or invalid file descriptor
+                            return None
+
+                    logout_result = await asyncio.to_thread(_logout)
+                    if logout_result and logout_result.error_code == "0":
+                        logger.debug("Baostock 登出成功")
+                    elif logout_result:
+                        logger.debug(f"Baostock 登出异常: {logout_result.error_msg}")
+                    # Add small delay to allow socket cleanup and avoid ResourceWarning
+                    await asyncio.sleep(0.1)
+                except Exception as e:
+                    logger.debug(f"Baostock 登出时发生错误: {e}")
 
     def _convert_stock_code(self, stock_code: str) -> str:
         code = stock_code.strip()

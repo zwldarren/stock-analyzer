@@ -176,7 +176,14 @@ def _suppress_noisy_loggers() -> None:
         "litellm.caching",
         "litellm.main",
         "litellm.litellm_core_utils",
+        "litellm.integrations",
+        "litellm.litellm_logging",
+        "litellm.logging_worker",
+        "LiteLLM",
+        "LiteLLM Logger",
     ]
 
     for name in noisy_loggers:
-        logging.getLogger(name).setLevel(logging.WARNING)
+        logger = logging.getLogger(name)
+        logger.setLevel(logging.WARNING)
+        logger.propagate = True

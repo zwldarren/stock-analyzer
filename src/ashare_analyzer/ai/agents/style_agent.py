@@ -13,6 +13,16 @@ import logging
 import math
 from typing import Any
 
+from ashare_analyzer.constants import (
+    A_SHARE_GRAHAM_MULTIPLIER,
+    A_SHARE_MOS_MODERATE,
+    A_SHARE_MOS_STRONG,
+    A_SHARE_PB_EXCELLENT,
+    A_SHARE_PB_GOOD,
+    A_SHARE_PE_ACCEPTABLE,
+    A_SHARE_PE_EXCELLENT,
+    A_SHARE_PE_GOOD,
+)
 from ashare_analyzer.exceptions import handle_errors
 from ashare_analyzer.models import AgentSignal, SignalType
 
@@ -249,38 +259,44 @@ class StyleAgent(BaseAgent):
 
     # Value Analysis Methods
     def _score_valuation(self, current_price: float, data: dict) -> int:
-        """Score valuation metrics (0-10)."""
+        """Score valuation metrics (0-10).
+
+        A-share adjusted thresholds:
+        - P/E: Average PE ~20-30 (vs US 15-20)
+        - P/B: Average PB ~2-3 (vs US 1.5-2)
+        - Margin of safety: More lenient thresholds for A-share volatility
+        """
         score = 0
         if current_price <= 0:
             return 5
 
-        # P/E scoring
+        # P/E scoring - A-share adjusted (average PE ~20-30)
         eps = data.get("eps", 0)
         if eps > 0:
             pe = current_price / eps
-            if pe < 15:
+            if pe < A_SHARE_PE_EXCELLENT:  # < 20: excellent value
                 score += 3
-            elif pe < 20:
+            elif pe < A_SHARE_PE_GOOD:  # < 25: good value
                 score += 2
-            elif pe < 25:
+            elif pe < A_SHARE_PE_ACCEPTABLE:  # < 35: acceptable
                 score += 1
 
-        # P/B scoring
+        # P/B scoring - A-share adjusted (average PB ~2-3)
         bvps = data.get("book_value_per_share", 0)
         if bvps > 0:
             pb = current_price / bvps
-            if pb < 2:
+            if pb < A_SHARE_PB_EXCELLENT:  # < 2.5: excellent value
                 score += 2
-            elif pb < 3:
+            elif pb < A_SHARE_PB_GOOD:  # < 3.5: good value
                 score += 1
 
-        # Margin of safety
-        graham = self._calculate_graham_number(data)
+        # Margin of safety - A-share adjusted
+        graham = self._calculate_graham_number(data, a_share_adjusted=True)
         if graham > 0 and current_price > 0:
             mos = (graham - current_price) / current_price * 100
-            if mos > 30:
+            if mos > A_SHARE_MOS_STRONG:  # > 20%: strong margin
                 score += 3
-            elif mos > 15:
+            elif mos > A_SHARE_MOS_MODERATE:  # > 10%: moderate margin
                 score += 2
 
         return min(score, 10)
@@ -593,13 +609,22 @@ class StyleAgent(BaseAgent):
         return min(score, 10)
 
     # Helper Methods
-    def _calculate_graham_number(self, data: dict) -> float:
-        """Calculate Graham Number."""
+    def _calculate_graham_number(self, data: dict, a_share_adjusted: bool = False) -> float:
+        """Calculate Graham Number.
+
+        Args:
+            data: Valuation data with eps and book_value_per_share
+            a_share_adjusted: If True, use A-share adjusted multiplier (18.0 vs 22.5)
+
+        Returns:
+            Graham number representing fair value estimate
+        """
         eps = data.get("eps", 0)
         bvps = data.get("book_value_per_share", 0)
         if eps <= 0 or bvps <= 0:
             return 0
-        return math.sqrt(22.5 * eps * bvps)
+        multiplier = A_SHARE_GRAHAM_MULTIPLIER if a_share_adjusted else 22.5
+        return math.sqrt(multiplier * eps * bvps)
 
     def _get_return(self, price_data: dict, days: int) -> float:
         """Calculate return over specified days."""
